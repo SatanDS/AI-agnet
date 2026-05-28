@@ -1,0 +1,15 @@
+services:
+  ai-chat:
+    build: .
+    container_name: ai-chat-web
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+    command: >
+      sh -c "npx prisma migrate deploy &&
+             npm run init-admin &&
+             node server.js"
