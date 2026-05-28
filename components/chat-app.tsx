@@ -62,9 +62,11 @@ type BrandSettings = {
 export function ChatApp({
   username,
   role,
+  canDeleteConversations,
 }: {
   username: string;
   role: UserRole;
+  canDeleteConversations: boolean;
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -83,6 +85,7 @@ export function ChatApp({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const shouldStickToBottomRef = useRef(true);
   const hasMessages = messages.length > 0;
+  const allowDeleteConversations = role === "owner" || canDeleteConversations;
 
   const activeConversation = useMemo(
     () => conversations.find((conversation) => conversation.id === activeId),
@@ -272,6 +275,11 @@ export function ChatApp({
   }
 
   async function deleteConversation(id: string) {
+    if (!allowDeleteConversations) {
+      setError("当前账号已被限制删除对话。");
+      return;
+    }
+
     setError("");
 
     try {
@@ -280,7 +288,8 @@ export function ChatApp({
       });
 
       if (!response.ok) {
-        throw new Error("无法删除对话。");
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.error ?? "无法删除对话。");
       }
 
       const next = conversations.filter((conversation) => conversation.id !== id);
@@ -512,14 +521,16 @@ export function ChatApp({
                     >
                       <span className="block truncate">{conversation.title}</span>
                     </button>
-                    <button
-                      className="rounded-full p-2 text-zinc-600 opacity-0 transition hover:bg-red-500/10 hover:text-red-300 group-hover:opacity-100"
-                      onClick={() => deleteConversation(conversation.id)}
-                      title="删除对话"
-                      type="button"
-                    >
-                      <Trash2 size={15} aria-hidden="true" />
-                    </button>
+                    {allowDeleteConversations ? (
+                      <button
+                        className="rounded-full p-2 text-zinc-600 opacity-0 transition hover:bg-red-500/10 hover:text-red-300 group-hover:opacity-100"
+                        onClick={() => deleteConversation(conversation.id)}
+                        title="删除对话"
+                        type="button"
+                      >
+                        <Trash2 size={15} aria-hidden="true" />
+                      </button>
+                    ) : null}
                   </div>
                 ))
               )}

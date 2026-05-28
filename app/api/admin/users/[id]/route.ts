@@ -14,6 +14,7 @@ const updateUserSchema = z.object({
   password: z.string().min(8).max(200).optional(),
   role: z.enum(["owner", "admin", "user"]).optional(),
   chatPreset: z.string().trim().max(8000).nullish(),
+  canDeleteConversations: z.boolean().optional(),
 });
 
 export async function PATCH(request: Request, context: RouteContext) {
@@ -55,6 +56,7 @@ export async function PATCH(request: Request, context: RouteContext) {
       isAdmin?: boolean;
       role?: string;
       chatPreset?: string | null;
+      canDeleteConversations?: boolean;
     } = {};
     if (parsed.data.password) {
       updateData.passwordHash = await hashPassword(parsed.data.password);
@@ -65,6 +67,9 @@ export async function PATCH(request: Request, context: RouteContext) {
       updateData.isAdmin = parsed.data.role !== "user";
       if (parsed.data.role === "owner") {
         updateData.chatPreset = null;
+        updateData.canDeleteConversations = true;
+      } else if (target.role === "owner") {
+        updateData.canDeleteConversations = true;
       }
     }
     if (parsed.data.chatPreset !== undefined) {
@@ -72,6 +77,12 @@ export async function PATCH(request: Request, context: RouteContext) {
         return jsonError("Owner accounts do not use chat presets.", 400);
       }
       updateData.chatPreset = parsed.data.chatPreset || null;
+    }
+    if (parsed.data.canDeleteConversations !== undefined) {
+      if (target.role === "owner" || parsed.data.role === "owner") {
+        return jsonError("Owner accounts are not limited by delete permissions.", 400);
+      }
+      updateData.canDeleteConversations = parsed.data.canDeleteConversations;
     }
 
     const user = await prisma.user.update({
@@ -83,6 +94,7 @@ export async function PATCH(request: Request, context: RouteContext) {
         isAdmin: true,
         role: true,
         chatPreset: true,
+        canDeleteConversations: true,
         createdAt: true,
         _count: {
           select: { conversations: true },

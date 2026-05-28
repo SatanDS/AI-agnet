@@ -17,6 +17,7 @@ import {
   UserPlus,
   X,
 } from "lucide-react";
+import clsx from "clsx";
 import type { UserRole } from "@/lib/auth";
 
 type AdminUser = {
@@ -24,6 +25,7 @@ type AdminUser = {
   username: string;
   role: UserRole;
   chatPreset?: string | null;
+  canDeleteConversations: boolean;
   isAdmin?: boolean;
   createdAt: string;
   _count?: { conversations: number };
@@ -290,6 +292,39 @@ export function AdminDashboard({
       await loadUsers();
     } catch (err) {
       setError(err instanceof Error ? err.message : "无法更新用户。");
+    }
+  }
+
+  async function updateUserDeletePermission(
+    user: AdminUser,
+    canDeleteConversations: boolean,
+  ) {
+    setStatus("");
+    setError("");
+
+    try {
+      const response = await fetch(`/api/admin/users/${user.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ canDeleteConversations }),
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.error ?? "无法更新删除权限。");
+      }
+
+      const payload = await response.json();
+      setUsers((current) =>
+        current.map((item) => (item.id === payload.user.id ? payload.user : item)),
+      );
+      setStatus(
+        canDeleteConversations
+          ? `${user.username} 已允许删除对话。`
+          : `${user.username} 已限制删除对话。`,
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "无法更新删除权限。");
     }
   }
 
@@ -732,13 +767,14 @@ export function AdminDashboard({
               ) : null}
 
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[860px] border-collapse text-sm">
+                <table className="w-full min-w-[980px] border-collapse text-sm">
                   <thead>
                     <tr className="border-b border-white/10 text-left text-zinc-500">
                       <th className="py-2 pr-3 font-medium">账号</th>
                       <th className="py-2 pr-3 font-medium">身份</th>
                       <th className="py-2 pr-3 font-medium">对话数</th>
                       <th className="py-2 pr-3 font-medium">创建时间</th>
+                      <th className="py-2 pr-3 font-medium">删除对话</th>
                       <th className="py-2 pr-3 font-medium">聊天预设</th>
                       <th className="py-2 pr-3 font-medium">操作</th>
                     </tr>
@@ -746,7 +782,7 @@ export function AdminDashboard({
                   <tbody>
                     {users.length === 0 ? (
                       <tr>
-                        <td className="py-6 text-center text-zinc-500" colSpan={6}>
+                        <td className="py-6 text-center text-zinc-500" colSpan={7}>
                           暂无可管理用户
                         </td>
                       </tr>
@@ -777,6 +813,43 @@ export function AdminDashboard({
                           <td className="py-3 pr-3">{user._count?.conversations ?? 0}</td>
                           <td className="py-3 pr-3 text-zinc-500">
                             {formatDate(user.createdAt)}
+                          </td>
+                          <td className="py-3 pr-3">
+                            {user.role === "owner" ? (
+                              <span className="text-zinc-500">不受限制</span>
+                            ) : (
+                              <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-zinc-300">
+                                <input
+                                  checked={user.canDeleteConversations}
+                                  className="sr-only"
+                                  onChange={(event) =>
+                                    updateUserDeletePermission(
+                                      user,
+                                      event.target.checked,
+                                    )
+                                  }
+                                  type="checkbox"
+                                />
+                                <span
+                                  className={clsx(
+                                    "relative h-6 w-11 rounded-full border border-white/10 transition",
+                                    user.canDeleteConversations
+                                      ? "bg-emerald-500/35"
+                                      : "bg-red-500/25",
+                                  )}
+                                >
+                                  <span
+                                    className={clsx(
+                                      "absolute left-1 top-1 h-4 w-4 rounded-full transition",
+                                      user.canDeleteConversations
+                                        ? "translate-x-5 bg-white"
+                                        : "bg-zinc-300",
+                                    )}
+                                  />
+                                </span>
+                                {user.canDeleteConversations ? "允许" : "限制"}
+                              </label>
+                            )}
                           </td>
                           <td className="py-3 pr-3">
                             {user.role === "owner" ? (

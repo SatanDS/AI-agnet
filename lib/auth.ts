@@ -106,6 +106,8 @@ export async function getCurrentUser() {
       username: session.user.username,
       isAdmin: session.user.isAdmin,
       role,
+      canDeleteConversations:
+        role === "owner" ? true : session.user.canDeleteConversations,
     };
   } catch {
     return null;

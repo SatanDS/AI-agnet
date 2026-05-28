@@ -9,5 +9,11 @@ export default async function Home() {
     redirect("/login");
   }
 
-  return <ChatApp username={user.username} role={user.role} />;
+  return (
+    <ChatApp
+      username={user.username}
+      role={user.role}
+      canDeleteConversations={user.canDeleteConversations}
+    />
+  );
 }
