@@ -12,6 +12,7 @@ type RouteContext = {
 const updateUserSchema = z.object({
   password: z.string().min(8).max(200).optional(),
   role: z.enum(["owner", "admin", "user"]).optional(),
+  chatPreset: z.string().trim().max(8000).nullish(),
 });
 
 export async function PATCH(request: Request, context: RouteContext) {
@@ -48,7 +49,12 @@ export async function PATCH(request: Request, context: RouteContext) {
       }
     }
 
-    const updateData: { passwordHash?: string; isAdmin?: boolean; role?: string } = {};
+    const updateData: {
+      passwordHash?: string;
+      isAdmin?: boolean;
+      role?: string;
+      chatPreset?: string | null;
+    } = {};
     if (parsed.data.password) {
       updateData.passwordHash = await hashPassword(parsed.data.password);
       await prisma.session.deleteMany({ where: { userId: id } });
@@ -56,6 +62,15 @@ export async function PATCH(request: Request, context: RouteContext) {
     if (parsed.data.role) {
       updateData.role = parsed.data.role;
       updateData.isAdmin = parsed.data.role !== "user";
+      if (parsed.data.role === "owner") {
+        updateData.chatPreset = null;
+      }
+    }
+    if (parsed.data.chatPreset !== undefined) {
+      if (target.role === "owner" || parsed.data.role === "owner") {
+        return jsonError("Owner accounts do not use chat presets.", 400);
+      }
+      updateData.chatPreset = parsed.data.chatPreset || null;
     }
 
     const user = await prisma.user.update({
@@ -66,7 +81,11 @@ export async function PATCH(request: Request, context: RouteContext) {
         username: true,
         isAdmin: true,
         role: true,
+        chatPreset: true,
         createdAt: true,
+        _count: {
+          select: { conversations: true },
+        },
       },
     });
 

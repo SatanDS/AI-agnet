@@ -22,6 +22,7 @@ type AdminUser = {
   id: string;
   username: string;
   role: UserRole;
+  chatPreset?: string | null;
   isAdmin?: boolean;
   createdAt: string;
   _count?: { conversations: number };
@@ -116,6 +117,8 @@ export function AdminDashboard({
   const [archives, setArchives] = useState<BehaviorArchive[]>([]);
   const [archiveSearch, setArchiveSearch] = useState("");
   const [archiveDetail, setArchiveDetail] = useState<ArchiveDetail | null>(null);
+  const [presetEditor, setPresetEditor] = useState<AdminUser | null>(null);
+  const [presetDraft, setPresetDraft] = useState("");
   const [loadingArchiveDetail, setLoadingArchiveDetail] = useState(false);
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -125,6 +128,7 @@ export function AdminDashboard({
   const [loading, setLoading] = useState(true);
   const [savingSettings, setSavingSettings] = useState(false);
   const [savingPresets, setSavingPresets] = useState(false);
+  const [savingUserPreset, setSavingUserPreset] = useState(false);
   const [testingModel, setTestingModel] = useState(false);
   const [localModels, setLocalModels] = useState<string[]>([]);
 
@@ -284,6 +288,59 @@ export function AdminDashboard({
       setStatus("密码已重置。");
     } catch (err) {
       setError(err instanceof Error ? err.message : "无法重置密码。");
+    }
+  }
+
+  function openPresetEditor(user: AdminUser) {
+    if (user.role === "owner") {
+      setError("所有者账号不参与聊天预设。");
+      return;
+    }
+
+    setError("");
+    setStatus("");
+    setPresetEditor(user);
+    setPresetDraft(user.chatPreset ?? "");
+  }
+
+  async function saveUserPreset(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!presetEditor) {
+      return;
+    }
+
+    setSavingUserPreset(true);
+    setStatus("");
+    setError("");
+
+    try {
+      const response = await fetch(`/api/admin/users/${presetEditor.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chatPreset: presetDraft }),
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.error ?? "无法保存用户聊天预设。");
+      }
+
+      const payload = await response.json();
+      setUsers((current) =>
+        current.map((user) => (user.id === payload.user.id ? payload.user : user)),
+      );
+      setPresetEditor(null);
+      setPresetDraft("");
+      setStatus(
+        presetDraft.trim()
+          ? `${presetEditor.username} 的聊天预设已保存。`
+          : `${presetEditor.username} 已恢复使用全局预设。`,
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "无法保存用户聊天预设。");
+    } finally {
+      setSavingUserPreset(false);
     }
   }
 
@@ -544,21 +601,66 @@ export function AdminDashboard({
                 </button>
               </form>
 
+              {isOwner ? (
+                <form
+                  onSubmit={savePresets}
+                  className="mb-6 grid gap-4 border-b border-white/10 pb-5 lg:grid-cols-2"
+                >
+                  <label className="block">
+                    <span className="mb-1 block text-sm font-medium text-zinc-300">
+                      全局普通用户预设
+                    </span>
+                    <textarea
+                      className="min-h-28 w-full resize-y rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm leading-6 text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-white/25 focus:bg-white/8"
+                      value={presets.USER_CHAT_PRESET}
+                      onChange={(event) =>
+                        updatePresets({ USER_CHAT_PRESET: event.target.value })
+                      }
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="mb-1 block text-sm font-medium text-zinc-300">
+                      全局管理员预设
+                    </span>
+                    <textarea
+                      className="min-h-28 w-full resize-y rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm leading-6 text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-white/25 focus:bg-white/8"
+                      value={presets.ADMIN_CHAT_PRESET}
+                      onChange={(event) =>
+                        updatePresets({ ADMIN_CHAT_PRESET: event.target.value })
+                      }
+                    />
+                  </label>
+                  <button
+                    className="flex h-10 items-center justify-center gap-2 rounded-xl bg-white px-3 text-sm font-medium text-zinc-950 hover:bg-zinc-200 lg:col-span-2"
+                    disabled={savingPresets}
+                    type="submit"
+                  >
+                    {savingPresets ? (
+                      <Loader2 className="animate-spin" size={17} aria-hidden="true" />
+                    ) : (
+                      <Save size={17} aria-hidden="true" />
+                    )}
+                    保存全局聊天预设
+                  </button>
+                </form>
+              ) : null}
+
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[700px] border-collapse text-sm">
+                <table className="w-full min-w-[860px] border-collapse text-sm">
                   <thead>
                     <tr className="border-b border-white/10 text-left text-zinc-500">
                       <th className="py-2 pr-3 font-medium">账号</th>
                       <th className="py-2 pr-3 font-medium">身份</th>
                       <th className="py-2 pr-3 font-medium">对话数</th>
                       <th className="py-2 pr-3 font-medium">创建时间</th>
+                      <th className="py-2 pr-3 font-medium">聊天预设</th>
                       <th className="py-2 pr-3 font-medium">操作</th>
                     </tr>
                   </thead>
                   <tbody>
                     {users.length === 0 ? (
                       <tr>
-                        <td className="py-6 text-center text-zinc-500" colSpan={5}>
+                        <td className="py-6 text-center text-zinc-500" colSpan={6}>
                           暂无可管理用户
                         </td>
                       </tr>
@@ -590,6 +692,19 @@ export function AdminDashboard({
                           <td className="py-3 pr-3 text-zinc-500">
                             {formatDate(user.createdAt)}
                           </td>
+                          <td className="py-3 pr-3">
+                            {user.role === "owner" ? (
+                              <span className="text-zinc-500">不参与</span>
+                            ) : (
+                              <button
+                                className="rounded-xl border border-white/10 px-3 py-1.5 text-sm text-zinc-200 hover:bg-white/10"
+                                onClick={() => openPresetEditor(user)}
+                                type="button"
+                              >
+                                {user.chatPreset ? "个人预设" : "聊天预设"}
+                              </button>
+                            )}
+                          </td>
                           <td className="flex flex-wrap gap-2 py-3 pr-3">
                             <button
                               className="flex items-center gap-1 rounded-xl border border-white/10 px-2 py-1 text-zinc-200 hover:bg-white/10"
@@ -617,7 +732,7 @@ export function AdminDashboard({
             </section>
 
             {isOwner ? (
-              <div className="grid gap-6 lg:grid-cols-[420px_1fr]">
+              <div className="grid gap-6">
                 <section className="rounded-3xl border border-white/10 bg-zinc-950/80 p-5 shadow-2xl shadow-black/20 backdrop-blur-2xl">
                   <div className="mb-5 flex items-center gap-2">
                     <SlidersHorizontal size={20} aria-hidden="true" />
@@ -789,52 +904,6 @@ export function AdminDashboard({
                     ) : null}
                   </form>
                 </section>
-
-                <section className="rounded-3xl border border-white/10 bg-zinc-950/80 p-5 shadow-2xl shadow-black/20 backdrop-blur-2xl">
-                  <div className="mb-5 flex items-center gap-2">
-                    <Save size={20} aria-hidden="true" />
-                    <h2 className="text-base font-semibold">聊天预设</h2>
-                  </div>
-
-                  <form onSubmit={savePresets} className="space-y-4">
-                    <label className="block">
-                      <span className="mb-1 block text-sm font-medium text-zinc-300">
-                        普通用户预设
-                      </span>
-                      <textarea
-                        className="min-h-36 w-full resize-y rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm leading-6 text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-white/25 focus:bg-white/8"
-                        value={presets.USER_CHAT_PRESET}
-                        onChange={(event) =>
-                          updatePresets({ USER_CHAT_PRESET: event.target.value })
-                        }
-                      />
-                    </label>
-                    <label className="block">
-                      <span className="mb-1 block text-sm font-medium text-zinc-300">
-                        管理员预设
-                      </span>
-                      <textarea
-                        className="min-h-36 w-full resize-y rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm leading-6 text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-white/25 focus:bg-white/8"
-                        value={presets.ADMIN_CHAT_PRESET}
-                        onChange={(event) =>
-                          updatePresets({ ADMIN_CHAT_PRESET: event.target.value })
-                        }
-                      />
-                    </label>
-                    <button
-                      className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-white px-3 text-sm font-medium text-zinc-950 hover:bg-zinc-200"
-                      disabled={savingPresets}
-                      type="submit"
-                    >
-                      {savingPresets ? (
-                        <Loader2 className="animate-spin" size={17} aria-hidden="true" />
-                      ) : (
-                        <Save size={17} aria-hidden="true" />
-                      )}
-                      保存聊天预设
-                    </button>
-                  </form>
-                </section>
               </div>
             ) : null}
 
@@ -932,6 +1001,19 @@ export function AdminDashboard({
           onClose={() => setArchiveDetail(null)}
         />
       ) : null}
+      {presetEditor ? (
+        <UserPresetModal
+          draft={presetDraft}
+          saving={savingUserPreset}
+          user={presetEditor}
+          onClose={() => {
+            setPresetEditor(null);
+            setPresetDraft("");
+          }}
+          onDraftChange={setPresetDraft}
+          onSubmit={saveUserPreset}
+        />
+      ) : null}
     </main>
   );
 }
@@ -1016,6 +1098,83 @@ function ArchiveDetailModal({
             </div>
           )}
         </div>
+      </section>
+    </div>
+  );
+}
+
+function UserPresetModal({
+  user,
+  draft,
+  saving,
+  onDraftChange,
+  onSubmit,
+  onClose,
+}: {
+  user: AdminUser;
+  draft: string;
+  saving: boolean;
+  onDraftChange: (value: string) => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 px-4 py-8 backdrop-blur-md"
+      onClick={onClose}
+    >
+      <section
+        className="flex max-h-[80vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-zinc-950/95 shadow-2xl shadow-black/50"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <header className="flex h-16 items-center justify-between border-b border-white/10 px-5">
+          <div className="min-w-0">
+            <h3 className="truncate text-base font-semibold">
+              {user.username} 的聊天预设
+            </h3>
+            <p className="mt-1 text-xs text-zinc-500">
+              {roleLabel(user.role)} · 留空则使用全局{roleLabel(user.role)}预设
+            </p>
+          </div>
+          <button
+            className="flex h-9 w-9 items-center justify-center rounded-full text-zinc-400 transition hover:bg-white/10 hover:text-white"
+            onClick={onClose}
+            title="关闭"
+            type="button"
+          >
+            <X size={18} aria-hidden="true" />
+          </button>
+        </header>
+
+        <form onSubmit={onSubmit} className="flex min-h-0 flex-1 flex-col p-5">
+          <textarea
+            className="min-h-[320px] flex-1 resize-y rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm leading-6 text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-white/25 focus:bg-white/8"
+            placeholder="填写该用户专属 AI 人设、回答范围和拒答规则。"
+            value={draft}
+            onChange={(event) => onDraftChange(event.target.value)}
+          />
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+            <button
+              className="rounded-xl border border-white/10 px-4 py-2 text-sm text-zinc-300 hover:bg-white/10 hover:text-white"
+              onClick={() => onDraftChange("")}
+              type="button"
+            >
+              恢复全局预设
+            </button>
+            <button
+              className="flex h-10 items-center justify-center gap-2 rounded-xl bg-white px-5 text-sm font-medium text-zinc-950 hover:bg-zinc-200"
+              disabled={saving}
+              type="submit"
+            >
+              {saving ? (
+                <Loader2 className="animate-spin" size={17} aria-hidden="true" />
+              ) : (
+                <Save size={17} aria-hidden="true" />
+              )}
+              保存个人预设
+            </button>
+          </div>
+        </form>
       </section>
     </div>
   );

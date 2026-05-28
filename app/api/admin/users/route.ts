@@ -9,6 +9,7 @@ const createUserSchema = z.object({
   username: z.string().trim().min(2).max(40),
   password: z.string().min(8).max(200),
   role: z.enum(["owner", "admin", "user"]).default("user"),
+  chatPreset: z.string().trim().max(8000).optional(),
 });
 
 export async function GET() {
@@ -22,6 +23,7 @@ export async function GET() {
         username: true,
         isAdmin: true,
         role: true,
+        chatPreset: true,
         createdAt: true,
         _count: {
           select: { conversations: true },
@@ -61,12 +63,15 @@ export async function POST(request: Request) {
         passwordHash,
         isAdmin: parsed.data.role !== "user",
         role: parsed.data.role,
+        chatPreset:
+          parsed.data.role === "owner" ? null : parsed.data.chatPreset || null,
       },
       select: {
         id: true,
         username: true,
         isAdmin: true,
         role: true,
+        chatPreset: true,
         createdAt: true,
       },
     });

@@ -92,7 +92,7 @@ export async function POST(request: Request) {
       content: true,
     },
   });
-  const preset = await getPresetForRole(user.role);
+  const preset = await getPresetForUser(user.id, user.role);
   const modelHistory: ChatMessage[] = history.map((item) => ({
     role: item.role as "user" | "assistant" | "system",
     content: item.content,
@@ -174,9 +174,18 @@ function titleFromMessage(message: string) {
   return compact.length > 24 ? `${compact.slice(0, 24)}...` : compact || "新对话";
 }
 
-async function getPresetForRole(role: UserRole) {
+async function getPresetForUser(userId: string, role: UserRole) {
   if (role === "owner") {
     return "";
+  }
+
+  const userPreset = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { chatPreset: true },
+  });
+  const personalPreset = userPreset?.chatPreset?.trim();
+  if (personalPreset) {
+    return personalPreset;
   }
 
   const presets = await getChatPresetSettings();

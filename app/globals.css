@@ -31,6 +31,17 @@ textarea {
 
 select {
   font: inherit;
+  color: #f4f4f5;
+  background-color: rgba(24, 24, 27, 0.96);
+}
+
+select option {
+  color: #18181b;
+  background-color: #f4f4f5;
+}
+
+select option:disabled {
+  color: #a1a1aa;
 }
 
 .ai-ambient {
