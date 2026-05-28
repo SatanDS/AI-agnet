@@ -53,7 +53,7 @@ export function ChatApp({
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const hasMessages = messages.length > 0;
 
   const activeConversation = useMemo(
@@ -61,9 +61,36 @@ export function ChatApp({
     [activeId, conversations],
   );
 
+  const scrollToMessageEnd = useCallback((behavior: ScrollBehavior = "auto") => {
+    const container = scrollContainerRef.current;
+    if (!container) {
+      return;
+    }
+
+    container.scrollTo({
+      top: container.scrollHeight,
+      behavior,
+    });
+  }, []);
+
   useEffect(() => {
-    scrollRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [messages, sending]);
+    if (!hasMessages) {
+      return;
+    }
+
+    const behavior: ScrollBehavior = sending ? "auto" : "smooth";
+    const frame = window.requestAnimationFrame(() => {
+      scrollToMessageEnd(behavior);
+    });
+    const settleTimer = window.setTimeout(() => {
+      scrollToMessageEnd("auto");
+    }, 40);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(settleTimer);
+    };
+  }, [hasMessages, messages, scrollToMessageEnd, sending]);
 
   const loadConversations = useCallback(async (selectFirst = true) => {
     setLoadingConversations(true);
@@ -444,19 +471,20 @@ export function ChatApp({
         ) : null}
 
         <div
+          ref={scrollContainerRef}
           className={clsx(
-            "min-h-0 flex-1 overflow-y-auto px-4",
+            "min-h-0 flex-1 overscroll-contain overflow-y-auto px-4",
             hasMessages ? "py-5" : "flex items-center justify-center pb-28",
           )}
         >
           {loadingMessages ? (
             <p className="text-sm text-zinc-500">正在加载消息</p>
           ) : hasMessages ? (
-            <div className="mx-auto flex max-w-3xl flex-col gap-5 pb-44">
+            <div className="mx-auto flex max-w-3xl flex-col gap-5">
               {messages.map((message) => (
                 <MessageBubble key={message.id} message={message} />
               ))}
-              <div ref={scrollRef} />
+              <div className="h-44 shrink-0 md:h-48" aria-hidden="true" />
             </div>
           ) : (
             <div className="mx-auto w-full max-w-3xl text-center">
