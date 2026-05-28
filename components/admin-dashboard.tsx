@@ -4,6 +4,7 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
+  ImagePlus,
   ClipboardList,
   FileText,
   KeyRound,
@@ -47,6 +48,11 @@ type ModelSettings = {
 type PresetSettings = {
   USER_CHAT_PRESET: string;
   ADMIN_CHAT_PRESET: string;
+};
+
+type BrandSettings = {
+  logoUrl: string | null;
+  logoUpdatedAt: string;
 };
 
 type BehaviorArchive = {
@@ -105,6 +111,11 @@ const emptyPresets: PresetSettings = {
   ADMIN_CHAT_PRESET: "",
 };
 
+const emptyBrand: BrandSettings = {
+  logoUrl: null,
+  logoUpdatedAt: "",
+};
+
 const roleOptions: Array<{ value: UserRole; label: string }> = [
   { value: "user", label: "普通用户" },
   { value: "admin", label: "管理员" },
@@ -123,6 +134,7 @@ export function AdminDashboard({
   const [settings, setSettings] = useState<ModelSettings>(emptySettings);
   const [modelOptions, setModelOptions] = useState<ModelOption[]>([]);
   const [presets, setPresets] = useState<PresetSettings>(emptyPresets);
+  const [brand, setBrand] = useState<BrandSettings>(emptyBrand);
   const [archives, setArchives] = useState<BehaviorArchive[]>([]);
   const [archiveSearch, setArchiveSearch] = useState("");
   const [archiveDetail, setArchiveDetail] = useState<ArchiveDetail | null>(null);
@@ -138,6 +150,7 @@ export function AdminDashboard({
   const [savingSettings, setSavingSettings] = useState(false);
   const [savingPresets, setSavingPresets] = useState(false);
   const [savingUserPreset, setSavingUserPreset] = useState(false);
+  const [savingBrand, setSavingBrand] = useState(false);
   const [testingModel, setTestingModel] = useState(false);
   const [localModels, setLocalModels] = useState<string[]>([]);
 
@@ -152,11 +165,18 @@ export function AdminDashboard({
         requests.push(
           fetch("/api/admin/settings/model"),
           fetch("/api/admin/settings/presets"),
+          fetch("/api/admin/brand"),
           fetch("/api/admin/logs"),
         );
       }
 
-      const [usersResponse, settingsResponse, presetsResponse, logsResponse] =
+      const [
+        usersResponse,
+        settingsResponse,
+        presetsResponse,
+        brandResponse,
+        logsResponse,
+      ] =
         await Promise.all(requests);
 
       if (usersResponse.status === 401 || settingsResponse?.status === 401) {
@@ -180,17 +200,23 @@ export function AdminDashboard({
           throw new Error("无法加载聊天预设。");
         }
 
+        if (!brandResponse?.ok) {
+          throw new Error("无法加载品牌设置。");
+        }
+
         if (!logsResponse?.ok) {
           throw new Error("无法加载行为日志。");
         }
 
         const settingsPayload = await settingsResponse.json();
         const presetsPayload = await presetsResponse.json();
+        const brandPayload = await brandResponse.json();
         const logsPayload = await logsResponse.json();
 
         setSettings(settingsPayload.settings);
         setModelOptions(settingsPayload.modelOptions);
         setPresets(presetsPayload.presets);
+        setBrand(brandPayload.brand ?? emptyBrand);
         setArchives(logsPayload.archives ?? []);
       }
     } catch (err) {
@@ -434,6 +460,57 @@ export function AdminDashboard({
       setError(err instanceof Error ? err.message : "无法保存聊天预设。");
     } finally {
       setSavingPresets(false);
+    }
+  }
+
+  async function uploadBrandLogo(file: File) {
+    setSavingBrand(true);
+    setStatus("");
+    setError("");
+
+    try {
+      const body = new FormData();
+      body.set("logo", file);
+      const response = await fetch("/api/admin/brand", {
+        method: "PUT",
+        body,
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.error ?? "无法上传 Logo。");
+      }
+
+      const payload = await response.json();
+      setBrand(payload.brand ?? emptyBrand);
+      setStatus("Logo 已更新。");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "无法上传 Logo。");
+    } finally {
+      setSavingBrand(false);
+    }
+  }
+
+  async function deleteBrandLogo() {
+    setSavingBrand(true);
+    setStatus("");
+    setError("");
+
+    try {
+      const response = await fetch("/api/admin/brand", { method: "DELETE" });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.error ?? "无法移除 Logo。");
+      }
+
+      const payload = await response.json();
+      setBrand(payload.brand ?? emptyBrand);
+      setStatus("Logo 已移除。");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "无法移除 Logo。");
+    } finally {
+      setSavingBrand(false);
     }
   }
 
@@ -742,6 +819,63 @@ export function AdminDashboard({
 
             {isOwner ? (
               <div className="grid gap-6">
+                <section className="rounded-3xl border border-white/10 bg-zinc-950/80 p-5 shadow-2xl shadow-black/20 backdrop-blur-2xl">
+                  <div className="mb-5 flex items-center gap-2">
+                    <ImagePlus size={20} aria-hidden="true" />
+                    <h2 className="text-base font-semibold">品牌 Logo</h2>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-4">
+                    <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-white/5">
+                      {brand.logoUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          alt="当前 Logo"
+                          className="h-full w-full object-contain p-2"
+                          src={brand.logoUrl}
+                        />
+                      ) : (
+                        <span className="text-lg font-semibold text-zinc-400">
+                          森
+                        </span>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm text-zinc-300">
+                        上传后会显示在网页窗口图标和对话侧边栏。
+                      </p>
+                      <p className="mt-1 text-xs text-zinc-500">
+                        支持 PNG、JPG、WEBP，最大 2MB，会自动缩放适配。
+                      </p>
+                    </div>
+                    <label className="flex h-10 cursor-pointer items-center justify-center gap-2 rounded-xl bg-white px-4 text-sm font-medium text-zinc-950 hover:bg-zinc-200">
+                      <ImagePlus size={17} aria-hidden="true" />
+                      上传 Logo
+                      <input
+                        accept="image/png,image/jpeg,image/webp"
+                        className="sr-only"
+                        disabled={savingBrand}
+                        onChange={(event) => {
+                          const file = event.target.files?.[0] ?? null;
+                          event.target.value = "";
+                          if (file) {
+                            void uploadBrandLogo(file);
+                          }
+                        }}
+                        type="file"
+                      />
+                    </label>
+                    <button
+                      className="h-10 rounded-xl border border-white/10 px-4 text-sm font-medium text-zinc-300 hover:bg-white/10 hover:text-white"
+                      disabled={savingBrand || !brand.logoUrl}
+                      onClick={deleteBrandLogo}
+                      type="button"
+                    >
+                      移除
+                    </button>
+                  </div>
+                </section>
+
                 <section className="rounded-3xl border border-white/10 bg-zinc-950/80 p-5 shadow-2xl shadow-black/20 backdrop-blur-2xl">
                   <div className="mb-5 flex items-center gap-2">
                     <SlidersHorizontal size={20} aria-hidden="true" />

@@ -54,6 +54,11 @@ type StreamPayload = {
   done?: boolean;
 };
 
+type BrandSettings = {
+  logoUrl: string | null;
+  logoUpdatedAt: string;
+};
+
 export function ChatApp({
   username,
   role,
@@ -66,12 +71,17 @@ export function ChatApp({
   const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
+  const [brand, setBrand] = useState<BrandSettings>({
+    logoUrl: null,
+    logoUpdatedAt: "",
+  });
   const [selectedImages, setSelectedImages] = useState<SelectedImage[]>([]);
   const [loadingConversations, setLoadingConversations] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const shouldStickToBottomRef = useRef(true);
   const hasMessages = messages.length > 0;
 
   const activeConversation = useMemo(
@@ -150,8 +160,19 @@ export function ChatApp({
     });
   }, []);
 
+  function updateStickToBottom() {
+    const container = scrollContainerRef.current;
+    if (!container) {
+      return;
+    }
+
+    const distanceFromBottom =
+      container.scrollHeight - container.scrollTop - container.clientHeight;
+    shouldStickToBottomRef.current = distanceFromBottom < 140;
+  }
+
   useEffect(() => {
-    if (!hasMessages) {
+    if (!hasMessages || !shouldStickToBottomRef.current) {
       return;
     }
 
@@ -200,6 +221,17 @@ export function ChatApp({
   useEffect(() => {
     void loadConversations();
   }, [loadConversations]);
+
+  useEffect(() => {
+    fetch("/api/brand")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload) => {
+        if (payload?.brand) {
+          setBrand(payload.brand);
+        }
+      })
+      .catch(() => undefined);
+  }, []);
 
   async function openConversation(id: string) {
     setActiveId(id);
@@ -428,6 +460,7 @@ export function ChatApp({
               <PanelLeftOpen size={18} aria-hidden="true" />
             )}
           </button>
+          <BrandMark logoUrl={brand.logoUrl} />
           <span
             className={clsx(
               "whitespace-nowrap text-sm font-semibold transition-all duration-500",
@@ -565,6 +598,7 @@ export function ChatApp({
 
         <div
           ref={scrollContainerRef}
+          onScroll={updateStickToBottom}
           className={clsx(
             "min-h-0 flex-1 overscroll-contain overflow-y-auto px-4",
             hasMessages ? "py-5" : "flex items-center justify-center pb-28",
@@ -603,8 +637,13 @@ export function ChatApp({
           )}
         </div>
 
+        <div
+          className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-36 bg-gradient-to-t from-zinc-950 via-zinc-950/70 to-transparent backdrop-blur-[1px]"
+          aria-hidden="true"
+        />
+
         {hasMessages ? (
-          <div className="pointer-events-none absolute inset-x-0 bottom-8 z-20 px-4 md:bottom-10">
+          <div className="pointer-events-none absolute inset-x-0 bottom-6 z-20 px-4 md:bottom-7">
             <div className="composer-dock pointer-events-auto mx-auto w-full max-w-3xl">
               <ChatComposer
                 input={input}
@@ -621,6 +660,23 @@ export function ChatApp({
         ) : null}
       </section>
     </main>
+  );
+}
+
+function BrandMark({ logoUrl }: { logoUrl: string | null }) {
+  return (
+    <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/5">
+      {logoUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          alt="森岳 AI Agent"
+          className="h-full w-full object-contain p-1"
+          src={logoUrl}
+        />
+      ) : (
+        <span className="text-sm font-semibold text-zinc-200">森</span>
+      )}
+    </span>
   );
 }
 
