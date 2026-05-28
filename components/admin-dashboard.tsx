@@ -246,6 +246,8 @@ export function AdminDashboard({ username }: { username: string }) {
     setSettings((current) => ({ ...current, ...partial }));
   }
 
+  const isOpenAIProvider = settings.MODEL_PROVIDER === "openai";
+
   return (
     <main className="min-h-screen bg-mist text-ink">
       <header className="border-b border-line bg-white">
@@ -395,85 +397,94 @@ export function AdminDashboard({ username }: { username: string }) {
                   </select>
                 </label>
 
-                <label className="block">
-                  <span className="mb-1 block text-sm font-medium text-slate-700">
-                    OpenAI model
-                  </span>
-                  <select
-                    className="h-10 w-full rounded-md border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
-                    value={settings.OPENAI_MODEL}
-                    onChange={(event) => updateSettings({ OPENAI_MODEL: event.target.value })}
-                  >
-                    {modelOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                {isOpenAIProvider ? (
+                  <>
+                    <label className="block">
+                      <span className="mb-1 block text-sm font-medium text-slate-700">
+                        OpenAI model
+                      </span>
+                      <select
+                        className="h-10 w-full rounded-md border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
+                        value={settings.OPENAI_MODEL}
+                        onChange={(event) =>
+                          updateSettings({ OPENAI_MODEL: event.target.value })
+                        }
+                      >
+                        {modelOptions.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
 
-                <label className="block">
-                  <span className="mb-1 block text-sm font-medium text-slate-700">
-                    OpenAI API key
-                  </span>
-                  <input
-                    className="h-10 w-full rounded-md border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
-                    placeholder={
-                      settings.OPENAI_API_KEY_MASKED
-                        ? `Current: ${settings.OPENAI_API_KEY_MASKED}`
-                        : "sk-..."
-                    }
-                    value={settings.OPENAI_API_KEY}
-                    onChange={(event) =>
-                      updateSettings({ OPENAI_API_KEY: event.target.value })
-                    }
-                  />
-                </label>
+                    <label className="block">
+                      <span className="mb-1 block text-sm font-medium text-slate-700">
+                        OpenAI API key
+                      </span>
+                      <input
+                        className="h-10 w-full rounded-md border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
+                        placeholder={
+                          settings.OPENAI_API_KEY_MASKED
+                            ? `Current: ${settings.OPENAI_API_KEY_MASKED}`
+                            : "sk-..."
+                        }
+                        value={settings.OPENAI_API_KEY}
+                        onChange={(event) =>
+                          updateSettings({ OPENAI_API_KEY: event.target.value })
+                        }
+                      />
+                    </label>
+                  </>
+                ) : (
+                  <>
+                    <label className="block">
+                      <span className="mb-1 block text-sm font-medium text-slate-700">
+                        Base URL
+                      </span>
+                      <input
+                        className="h-10 w-full rounded-md border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
+                        placeholder="https://api.example.com/v1"
+                        value={settings.LOCAL_OPENAI_BASE_URL}
+                        onChange={(event) =>
+                          updateSettings({ LOCAL_OPENAI_BASE_URL: event.target.value })
+                        }
+                      />
+                    </label>
 
-                <label className="block">
-                  <span className="mb-1 block text-sm font-medium text-slate-700">
-                    Local base URL
-                  </span>
-                  <input
-                    className="h-10 w-full rounded-md border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
-                    placeholder="http://192.168.1.50:8000/v1"
-                    value={settings.LOCAL_OPENAI_BASE_URL}
-                    onChange={(event) =>
-                      updateSettings({ LOCAL_OPENAI_BASE_URL: event.target.value })
-                    }
-                  />
-                </label>
+                    <label className="block">
+                      <span className="mb-1 block text-sm font-medium text-slate-700">
+                        Model
+                      </span>
+                      <input
+                        className="h-10 w-full rounded-md border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
+                        placeholder="gpt-5.5"
+                        value={settings.LOCAL_OPENAI_MODEL}
+                        onChange={(event) =>
+                          updateSettings({ LOCAL_OPENAI_MODEL: event.target.value })
+                        }
+                      />
+                    </label>
 
-                <label className="block">
-                  <span className="mb-1 block text-sm font-medium text-slate-700">
-                    Local model
-                  </span>
-                  <input
-                    className="h-10 w-full rounded-md border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
-                    value={settings.LOCAL_OPENAI_MODEL}
-                    onChange={(event) =>
-                      updateSettings({ LOCAL_OPENAI_MODEL: event.target.value })
-                    }
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="mb-1 block text-sm font-medium text-slate-700">
-                    Local API key
-                  </span>
-                  <input
-                    className="h-10 w-full rounded-md border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
-                    placeholder={
-                      settings.LOCAL_OPENAI_API_KEY_MASKED
-                        ? `Current: ${settings.LOCAL_OPENAI_API_KEY_MASKED}`
-                        : "Optional"
-                    }
-                    value={settings.LOCAL_OPENAI_API_KEY}
-                    onChange={(event) =>
-                      updateSettings({ LOCAL_OPENAI_API_KEY: event.target.value })
-                    }
-                  />
-                </label>
+                    <label className="block">
+                      <span className="mb-1 block text-sm font-medium text-slate-700">
+                        API key
+                      </span>
+                      <input
+                        className="h-10 w-full rounded-md border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
+                        placeholder={
+                          settings.LOCAL_OPENAI_API_KEY_MASKED
+                            ? `Current: ${settings.LOCAL_OPENAI_API_KEY_MASKED}`
+                            : "sk-..."
+                        }
+                        value={settings.LOCAL_OPENAI_API_KEY}
+                        onChange={(event) =>
+                          updateSettings({ LOCAL_OPENAI_API_KEY: event.target.value })
+                        }
+                      />
+                    </label>
+                  </>
+                )}
 
                 <button
                   className="flex h-10 w-full items-center justify-center gap-2 rounded-md bg-brand px-3 text-sm font-medium text-white hover:bg-teal-800"

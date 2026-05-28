@@ -54,18 +54,21 @@ export async function PUT(request: Request) {
     }
 
     const current = await getModelSettings();
+    const openAIKey =
+      parsed.data.OPENAI_API_KEY && parsed.data.OPENAI_API_KEY.trim()
+        ? parsed.data.OPENAI_API_KEY.trim()
+        : current.OPENAI_API_KEY;
+    const localKey =
+      parsed.data.LOCAL_OPENAI_API_KEY && parsed.data.LOCAL_OPENAI_API_KEY.trim()
+        ? parsed.data.LOCAL_OPENAI_API_KEY.trim()
+        : current.LOCAL_OPENAI_API_KEY || openAIKey;
+
     const next = {
       MODEL_PROVIDER: parsed.data.MODEL_PROVIDER,
-      OPENAI_API_KEY:
-        parsed.data.OPENAI_API_KEY && parsed.data.OPENAI_API_KEY.trim()
-          ? parsed.data.OPENAI_API_KEY.trim()
-          : current.OPENAI_API_KEY,
+      OPENAI_API_KEY: openAIKey,
       OPENAI_MODEL: parsed.data.OPENAI_MODEL,
       LOCAL_OPENAI_BASE_URL: parsed.data.LOCAL_OPENAI_BASE_URL?.trim() ?? "",
-      LOCAL_OPENAI_API_KEY:
-        parsed.data.LOCAL_OPENAI_API_KEY && parsed.data.LOCAL_OPENAI_API_KEY.trim()
-          ? parsed.data.LOCAL_OPENAI_API_KEY.trim()
-          : current.LOCAL_OPENAI_API_KEY,
+      LOCAL_OPENAI_API_KEY: localKey,
       LOCAL_OPENAI_MODEL: parsed.data.LOCAL_OPENAI_MODEL,
     };
 

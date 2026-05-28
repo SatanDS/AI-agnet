@@ -37,7 +37,7 @@ export async function* streamModelResponse(messages: ChatMessage[]) {
   yield* streamOpenAICompatibleChat(
     messages,
     config.LOCAL_OPENAI_BASE_URL,
-    config.LOCAL_OPENAI_API_KEY,
+    config.LOCAL_OPENAI_API_KEY || config.OPENAI_API_KEY,
     config.LOCAL_OPENAI_MODEL,
   );
 }
