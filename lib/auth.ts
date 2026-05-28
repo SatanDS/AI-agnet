@@ -14,6 +14,18 @@ function getAuthSecret() {
   return new TextEncoder().encode(secret);
 }
 
+function shouldUseSecureCookie() {
+  if (process.env.AUTH_COOKIE_SECURE === "true") {
+    return true;
+  }
+
+  if (process.env.AUTH_COOKIE_SECURE === "false") {
+    return false;
+  }
+
+  return process.env.NODE_ENV === "production";
+}
+
 export async function createSession(userId: string) {
   const expiresAt = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000);
   const session = await prisma.session.create({
@@ -33,7 +45,7 @@ export async function createSession(userId: string) {
   cookieStore.set(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: shouldUseSecureCookie(),
     path: "/",
     expires: expiresAt,
   });

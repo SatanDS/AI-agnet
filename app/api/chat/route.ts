@@ -57,12 +57,13 @@ export async function POST(request: Request) {
     },
   });
 
-  if (conversation.title === "New chat") {
-    await prisma.conversation.update({
-      where: { id: conversation.id },
-      data: { title: titleFromMessage(message) },
-    });
-  }
+  await prisma.conversation.update({
+    where: { id: conversation.id },
+    data: {
+      title: conversation.title === "New chat" ? titleFromMessage(message) : conversation.title,
+      updatedAt: new Date(),
+    },
+  });
 
   const history = await prisma.message.findMany({
     where: { conversationId: conversation.id },

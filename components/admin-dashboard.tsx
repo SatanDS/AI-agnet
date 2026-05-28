@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import Link from "next/link";
 import {
   ArrowLeft,
   KeyRound,
@@ -176,6 +177,12 @@ export function AdminDashboard({ username }: { username: string }) {
         throw new Error(payload?.error ?? "Could not reset password.");
       }
 
+      const payload = await response.json();
+      if (payload.selfPasswordChanged) {
+        window.location.href = "/login";
+        return;
+      }
+
       setStatus("Password reset.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not reset password.");
@@ -247,13 +254,13 @@ export function AdminDashboard({ username }: { username: string }) {
             <h1 className="text-xl font-semibold">Admin Console</h1>
             <p className="mt-1 text-sm text-slate-500">Signed in as {username}</p>
           </div>
-          <a
+          <Link
             className="flex h-10 items-center gap-2 rounded-md border border-line px-3 text-sm font-medium hover:bg-slate-100"
             href="/"
           >
             <ArrowLeft size={17} aria-hidden="true" />
             Back to chat
-          </a>
+          </Link>
         </div>
       </header>
 

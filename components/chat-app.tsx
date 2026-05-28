@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   LogOut,
   Menu,
@@ -57,14 +57,10 @@ export function ChatApp({
   );
 
   useEffect(() => {
-    void loadConversations();
-  }, []);
-
-  useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, sending]);
 
-  async function loadConversations(selectFirst = true) {
+  const loadConversations = useCallback(async (selectFirst = true) => {
     setLoadingConversations(true);
     setError("");
 
@@ -90,7 +86,11 @@ export function ChatApp({
     } finally {
       setLoadingConversations(false);
     }
-  }
+  }, [activeId]);
+
+  useEffect(() => {
+    void loadConversations();
+  }, [loadConversations]);
 
   async function openConversation(id: string) {
     setActiveId(id);

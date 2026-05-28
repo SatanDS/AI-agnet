@@ -24,7 +24,16 @@ export async function PATCH(request: Request, context: RouteContext) {
       return jsonError("Invalid user data.", 400);
     }
 
-    if (parsed.data.isAdmin === false) {
+    const target = await prisma.user.findUnique({ where: { id } });
+    if (!target) {
+      return jsonError("User not found.", 404);
+    }
+
+    if (admin.id === id && parsed.data.isAdmin === false) {
+      return jsonError("You cannot remove admin access from your own account.", 400);
+    }
+
+    if (target.isAdmin && parsed.data.isAdmin === false) {
       const adminCount = await prisma.user.count({ where: { isAdmin: true } });
       if (adminCount <= 1) {
         return jsonError("At least one admin account is required.", 400);

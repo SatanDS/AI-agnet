@@ -1,8 +1,10 @@
 node_modules
+.tools
 .next
 .env
 .env.local
 data
+*.zip
 Dockerfile
 docker-compose.yml
 README.md
