@@ -4,8 +4,6 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "re
 import {
   Compass,
   LogOut,
-  Menu,
-  MessageSquare,
   MessageSquarePlus,
   PanelLeftClose,
   PanelLeftOpen,
@@ -132,7 +130,6 @@ export function ChatApp({
       setConversations((current) => [payload.conversation, ...current]);
       setActiveId(payload.conversation.id);
       setMessages([]);
-      setSidebarOpen(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "无法创建对话。");
     }
@@ -290,134 +287,149 @@ export function ChatApp({
 
   return (
     <main className="ai-ambient flex h-screen overflow-hidden text-zinc-100">
-      <nav className="ai-subtle-border z-40 flex w-14 shrink-0 flex-col items-center border-r bg-black/20 px-2 py-3 backdrop-blur-xl">
-        <button
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-zinc-200 transition hover:bg-white/15"
-          onClick={() => setSidebarOpen((current) => !current)}
-          title={sidebarOpen ? "关闭侧栏" : "打开侧栏"}
-          type="button"
-        >
-          {sidebarOpen ? (
-            <PanelLeftClose size={18} aria-hidden="true" />
-          ) : (
-            <PanelLeftOpen size={18} aria-hidden="true" />
-          )}
-        </button>
-
-        <div className="mt-5 flex flex-1 flex-col items-center gap-2">
-          <IconButton icon={<MessageSquarePlus size={18} />} label="新对话" onClick={createConversation} />
-          <IconButton icon={<Search size={18} />} label="搜索" onClick={() => setSidebarOpen(true)} />
-          <IconButton icon={<Compass size={18} />} label="探索" onClick={() => setSidebarOpen(true)} />
+      <aside
+        className={clsx(
+          "sidebar-panel z-40 flex shrink-0 flex-col overflow-hidden bg-zinc-950/20 px-3 py-4",
+          sidebarOpen
+            ? "w-[288px] bg-zinc-900/90 shadow-2xl shadow-black/30"
+            : "w-14 bg-transparent shadow-none",
+        )}
+      >
+        <div className="flex h-10 items-center gap-3">
+          <button
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-zinc-300 transition hover:bg-white/10 hover:text-white"
+            onClick={() => setSidebarOpen((current) => !current)}
+            title={sidebarOpen ? "收起侧边栏" : "展开侧边栏"}
+            type="button"
+          >
+            {sidebarOpen ? (
+              <PanelLeftClose size={18} aria-hidden="true" />
+            ) : (
+              <PanelLeftOpen size={18} aria-hidden="true" />
+            )}
+          </button>
+          <span
+            className={clsx(
+              "whitespace-nowrap text-sm font-semibold transition-all duration-500",
+              sidebarOpen ? "opacity-100 translate-x-0" : "pointer-events-none -translate-x-2 opacity-0",
+            )}
+          >
+            森岳 AI Agent
+          </span>
         </div>
 
-        <div className="flex flex-col items-center gap-2">
+        <div className="mt-6 flex flex-1 flex-col gap-2">
+          <SidebarAction
+            icon={<MessageSquarePlus size={18} />}
+            label="新对话"
+            expanded={sidebarOpen}
+            active={!activeId}
+            onClick={createConversation}
+          />
+          <SidebarAction
+            icon={<Search size={18} />}
+            label="搜索对话"
+            expanded={sidebarOpen}
+            onClick={() => setSidebarOpen(true)}
+          />
+          <SidebarAction
+            icon={<Compass size={18} />}
+            label="探索"
+            expanded={sidebarOpen}
+            onClick={() => setSidebarOpen(true)}
+          />
+
+          {sidebarOpen ? (
+            <div className="mt-5 min-h-0 flex-1 overflow-y-auto pr-1">
+              <p className="px-2 pb-2 text-xs text-zinc-500">对话</p>
+              {loadingConversations ? (
+                <p className="px-2 py-2 text-sm text-zinc-500">正在加载</p>
+              ) : conversations.length === 0 ? (
+                <p className="px-2 py-2 text-sm text-zinc-500">暂无对话</p>
+              ) : (
+                conversations.map((conversation) => (
+                  <div key={conversation.id} className="group flex items-center gap-1">
+                    <button
+                      className={clsx(
+                        "min-w-0 flex-1 rounded-full px-3 py-2 text-left text-sm text-zinc-300 transition hover:bg-white/8 hover:text-white",
+                        activeId === conversation.id && "bg-white/10 text-white",
+                      )}
+                      onClick={() => openConversation(conversation.id)}
+                      type="button"
+                    >
+                      <span className="block truncate">{conversation.title}</span>
+                    </button>
+                    <button
+                      className="rounded-full p-2 text-zinc-600 opacity-0 transition hover:bg-red-500/10 hover:text-red-300 group-hover:opacity-100"
+                      onClick={() => deleteConversation(conversation.id)}
+                      title="删除对话"
+                      type="button"
+                    >
+                      <Trash2 size={15} aria-hidden="true" />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          ) : null}
+        </div>
+
+        <div className="flex flex-col gap-2">
           {role !== "user" ? (
             <a
-              className="flex h-9 w-9 items-center justify-center rounded-full text-zinc-300 transition hover:bg-white/10 hover:text-white"
+              className="flex h-10 items-center gap-3 rounded-full text-zinc-300 transition hover:bg-white/10 hover:text-white"
               href="/admin"
               title="管理后台"
             >
-              <Settings size={18} aria-hidden="true" />
+              <span className="flex h-10 w-9 shrink-0 items-center justify-center">
+                <Settings size={18} aria-hidden="true" />
+              </span>
+              <span
+                className={clsx(
+                  "whitespace-nowrap text-sm transition-all duration-500",
+                  sidebarOpen ? "opacity-100 translate-x-0" : "pointer-events-none -translate-x-2 opacity-0",
+                )}
+              >
+                管理后台
+              </span>
             </a>
           ) : null}
           <button
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-sky-500 text-sm font-semibold text-white transition hover:bg-sky-400"
-            title={username}
-            type="button"
-          >
-            {username.slice(0, 1).toUpperCase()}
-          </button>
-        </div>
-      </nav>
-
-      <aside
-        className={clsx(
-          "sidebar-panel ai-soft-border absolute inset-y-0 left-14 z-30 flex w-[300px] flex-col border-r bg-zinc-950/80 shadow-2xl shadow-black/40 backdrop-blur-2xl md:relative md:left-0",
-          sidebarOpen
-            ? "translate-x-0 opacity-100 blur-0 scale-100"
-            : "-translate-x-[300px] opacity-0 blur-sm scale-[0.985] md:-ml-[300px]",
-        )}
-      >
-        <div className="ai-subtle-border flex h-16 items-center justify-between border-b px-4">
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-white">森岳 AI Agent</p>
-            <p className="mt-0.5 truncate text-xs text-zinc-500">{username}</p>
-          </div>
-          <button
-            className="flex h-9 w-9 items-center justify-center rounded-full text-zinc-400 transition hover:bg-white/10 hover:text-white"
-            onClick={() => setSidebarOpen(false)}
-            title="收起侧边栏"
-            type="button"
-          >
-            <PanelLeftClose size={18} aria-hidden="true" />
-          </button>
-        </div>
-
-        <div className="ai-subtle-border border-b p-3">
-          <button
-            className="flex h-11 w-full items-center justify-center gap-2 rounded-full bg-white px-4 text-sm font-medium text-zinc-950 transition hover:bg-zinc-200"
-            onClick={createConversation}
-            type="button"
-          >
-            <MessageSquarePlus size={17} aria-hidden="true" />
-            新对话
-          </button>
-        </div>
-
-        <div className="min-h-0 flex-1 overflow-y-auto px-2 py-3">
-          {loadingConversations ? (
-            <p className="px-3 py-2 text-sm text-zinc-500">正在加载对话</p>
-          ) : conversations.length === 0 ? (
-            <p className="px-3 py-2 text-sm text-zinc-500">暂无对话</p>
-          ) : (
-            conversations.map((conversation) => (
-              <div key={conversation.id} className="group flex items-center gap-1">
-                <button
-                  className={clsx(
-                    "min-w-0 flex-1 rounded-xl px-3 py-2 text-left text-sm text-zinc-300 transition hover:bg-white/8 hover:text-white",
-                    activeId === conversation.id && "bg-white/10 text-white",
-                  )}
-                  onClick={() => openConversation(conversation.id)}
-                  type="button"
-                >
-                  <span className="block truncate">{conversation.title}</span>
-                </button>
-                <button
-                  className="rounded-full p-2 text-zinc-600 opacity-0 transition hover:bg-red-500/10 hover:text-red-300 group-hover:opacity-100"
-                  onClick={() => deleteConversation(conversation.id)}
-                  title="删除对话"
-                  type="button"
-                >
-                  <Trash2 size={15} aria-hidden="true" />
-                </button>
-              </div>
-            ))
-          )}
-        </div>
-
-        <div className="ai-subtle-border border-t p-3">
-          <button
-            className="ai-soft-border flex h-10 w-full items-center justify-center gap-2 rounded-full border text-sm font-medium text-zinc-300 transition hover:bg-white/10 hover:text-white"
+            className="flex h-10 items-center gap-3 rounded-full text-zinc-300 transition hover:bg-white/10 hover:text-white"
             onClick={logout}
             type="button"
           >
-            <LogOut size={17} aria-hidden="true" />
-            退出登录
+            <span className="flex h-10 w-9 shrink-0 items-center justify-center">
+              <LogOut size={18} aria-hidden="true" />
+            </span>
+            <span
+              className={clsx(
+                "whitespace-nowrap text-sm transition-all duration-500",
+                sidebarOpen ? "opacity-100 translate-x-0" : "pointer-events-none -translate-x-2 opacity-0",
+              )}
+            >
+              退出登录
+            </span>
           </button>
+          <div className="mt-2 flex h-10 items-center gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sky-500 text-sm font-semibold text-white">
+              {username.slice(0, 1).toUpperCase()}
+            </span>
+            <span
+              className={clsx(
+                "min-w-0 truncate text-sm font-medium transition-all duration-500",
+                sidebarOpen ? "opacity-100 translate-x-0" : "pointer-events-none -translate-x-2 opacity-0",
+              )}
+            >
+              {username}
+            </span>
+          </div>
         </div>
       </aside>
 
       <section className="relative flex min-w-0 flex-1 flex-col">
         <header className="flex h-14 items-center justify-between px-4 md:px-6">
-          <button
-            className="flex h-9 items-center gap-2 rounded-full bg-white px-4 text-sm font-medium text-zinc-950 shadow-lg shadow-black/20 transition hover:bg-zinc-200 md:hidden"
-            onClick={() => setSidebarOpen(true)}
-            type="button"
-          >
-            <Menu size={17} aria-hidden="true" />
-            打开侧栏
-          </button>
-          <div className="hidden min-w-0 md:block">
+          <div className="min-w-0">
             <p className="truncate text-sm text-zinc-500">
               {activeConversation?.title ?? "新对话"}
             </p>
@@ -440,7 +452,7 @@ export function ChatApp({
           {loadingMessages ? (
             <p className="text-sm text-zinc-500">正在加载消息</p>
           ) : hasMessages ? (
-            <div className="mx-auto flex max-w-3xl flex-col gap-5 pb-40">
+            <div className="mx-auto flex max-w-3xl flex-col gap-5 pb-44">
               {messages.map((message) => (
                 <MessageBubble key={message.id} message={message} />
               ))}
@@ -469,12 +481,12 @@ export function ChatApp({
         {hasMessages ? (
           <div className="pointer-events-none absolute inset-x-0 bottom-8 z-20 px-4 md:bottom-10">
             <div className="composer-dock pointer-events-auto mx-auto w-full max-w-3xl">
-            <ChatComposer
-              input={input}
-              sending={sending}
-              onInput={setInput}
-              onSubmit={handleSubmit}
-            />
+              <ChatComposer
+                input={input}
+                sending={sending}
+                onInput={setInput}
+                onSubmit={handleSubmit}
+              />
             </div>
           </div>
         ) : null}
@@ -496,8 +508,7 @@ function ChatComposer({
 }) {
   return (
     <form onSubmit={onSubmit} className="mx-auto w-full max-w-[720px]">
-      <div className="ai-composer-shell ai-soft-border flex min-h-[58px] items-end gap-3 rounded-full border bg-zinc-900/95 px-4 py-2.5 shadow-2xl shadow-blue-950/20 backdrop-blur-xl transition duration-300 focus-within:scale-[1.01]">
-        <MessageSquarePlus className="mb-1 shrink-0 text-zinc-400" size={21} aria-hidden="true" />
+      <div className="ai-composer-shell ai-soft-border flex min-h-[58px] items-end gap-3 rounded-full border bg-zinc-900/95 px-5 py-2.5 shadow-2xl shadow-blue-950/20 backdrop-blur-xl transition duration-300 focus-within:scale-[1.01]">
         <textarea
           className="max-h-32 min-h-9 flex-1 resize-none bg-transparent py-1 text-base leading-7 text-zinc-100 outline-none placeholder:text-zinc-500"
           value={input}
@@ -521,6 +532,9 @@ function ChatComposer({
           <Send size={18} aria-hidden="true" />
         </button>
       </div>
+      <p className="mt-3 text-center text-xs text-zinc-400">
+        我是由渡生设计创造的AI智能体,有时我也会出错.
+      </p>
     </form>
   );
 }
@@ -544,23 +558,40 @@ function MessageBubble({ message }: { message: Message }) {
   );
 }
 
-function IconButton({
+function SidebarAction({
   icon,
   label,
+  expanded,
+  active,
   onClick,
 }: {
   icon: React.ReactNode;
   label: string;
+  expanded: boolean;
+  active?: boolean;
   onClick: () => void;
 }) {
   return (
     <button
-      className="flex h-9 w-9 items-center justify-center rounded-full text-zinc-300 transition hover:bg-white/10 hover:text-white"
+      className={clsx(
+        "flex h-10 items-center gap-3 rounded-full text-zinc-300 transition hover:bg-white/10 hover:text-white",
+        active && expanded && "bg-white/10 text-white",
+      )}
       onClick={onClick}
       title={label}
       type="button"
     >
-      {icon}
+      <span className="flex h-10 w-9 shrink-0 items-center justify-center">
+        {icon}
+      </span>
+      <span
+        className={clsx(
+          "whitespace-nowrap text-sm font-medium transition-all duration-500",
+          expanded ? "opacity-100 translate-x-0" : "pointer-events-none -translate-x-2 opacity-0",
+        )}
+      >
+        {label}
+      </span>
     </button>
   );
 }
