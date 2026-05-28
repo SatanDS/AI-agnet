@@ -7,6 +7,7 @@ import {
   MessageSquarePlus,
   PanelLeftClose,
   Send,
+  Settings,
   Trash2,
 } from "lucide-react";
 import clsx from "clsx";
@@ -32,7 +33,13 @@ type StreamPayload = {
   done?: boolean;
 };
 
-export function ChatApp({ username }: { username: string }) {
+export function ChatApp({
+  username,
+  isAdmin,
+}: {
+  username: string;
+  isAdmin: boolean;
+}) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -339,6 +346,15 @@ export function ChatApp({ username }: { username: string }) {
         </div>
 
         <div className="border-t border-line p-3">
+          {isAdmin ? (
+            <a
+              className="mb-2 flex h-10 w-full items-center justify-center gap-2 rounded-md border border-line text-sm font-medium text-slate-700 hover:bg-slate-100"
+              href="/admin"
+            >
+              <Settings size={17} aria-hidden="true" />
+              Admin
+            </a>
+          ) : null}
           <button
             className="flex h-10 w-full items-center justify-center gap-2 rounded-md border border-line text-sm font-medium text-slate-700 hover:bg-slate-100"
             onClick={logout}

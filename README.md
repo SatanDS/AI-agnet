@@ -16,6 +16,8 @@ npm run dev
 
 打开 `http://localhost:3000`，使用 `.env` 里的 `ADMIN_USERNAME` 和 `ADMIN_PASSWORD` 登录。
 
+管理员登录后可以从聊天页左侧进入 `Admin` 后台，或直接访问 `/admin`。
+
 ## 环境变量
 
 核心配置在 `.env`：
@@ -32,6 +34,21 @@ LOCAL_OPENAI_BASE_URL=""
 LOCAL_OPENAI_API_KEY=""
 LOCAL_OPENAI_MODEL="local-model"
 ```
+
+`.env` 里的模型配置是首次启动和兜底配置。管理员后台保存模型配置后，聊天接口会优先读取数据库里的后台配置，通常不需要重启容器。
+
+## 管理员后台
+
+访问 `/admin` 可以：
+
+- 新增普通用户或管理员用户
+- 删除用户，同时删除该用户聊天记录
+- 重置用户密码
+- 切换用户管理员权限
+- 在 OpenAI 云端和 OpenAI 兼容本地模型之间切换
+- 保存 OpenAI API key、本地模型地址和模型名
+
+系统会阻止删除当前登录的管理员账号，也会阻止移除最后一个管理员权限。
 
 使用 OpenAI 云端时：
 

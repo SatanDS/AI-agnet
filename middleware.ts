@@ -8,7 +8,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 
-  if (pathname === "/" && !token) {
+  if ((pathname === "/" || pathname.startsWith("/admin")) && !token) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
@@ -16,5 +16,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/", "/login"],
+  matcher: ["/", "/login", "/admin/:path*"],
 };

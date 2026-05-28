@@ -1,4 +1,4 @@
-import { getConfig } from "@/lib/config";
+import { getModelSettings } from "@/lib/settings";
 
 export type ChatMessage = {
   role: "user" | "assistant" | "system";
@@ -20,16 +20,23 @@ export function encodeStreamChunk(payload: StreamChunk) {
 }
 
 export async function* streamModelResponse(messages: ChatMessage[]) {
-  const config = getConfig();
+  const config = await getModelSettings();
 
   if (config.MODEL_PROVIDER === "openai") {
-    yield* streamOpenAIResponses(messages, config.OPENAI_API_KEY!, config.OPENAI_MODEL);
+    if (!config.OPENAI_API_KEY) {
+      throw new Error("OpenAI API key is not configured.");
+    }
+    yield* streamOpenAIResponses(messages, config.OPENAI_API_KEY, config.OPENAI_MODEL);
     return;
+  }
+
+  if (!config.LOCAL_OPENAI_BASE_URL) {
+    throw new Error("Local model base URL is not configured.");
   }
 
   yield* streamOpenAICompatibleChat(
     messages,
-    config.LOCAL_OPENAI_BASE_URL!,
+    config.LOCAL_OPENAI_BASE_URL,
     config.LOCAL_OPENAI_API_KEY,
     config.LOCAL_OPENAI_MODEL,
   );

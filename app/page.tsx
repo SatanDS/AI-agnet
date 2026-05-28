@@ -9,5 +9,5 @@ export default async function Home() {
     redirect("/login");
   }
 
-  return <ChatApp username={user.username} />;
+  return <ChatApp username={user.username} isAdmin={user.isAdmin} />;
 }

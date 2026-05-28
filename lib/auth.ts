@@ -88,6 +88,7 @@ export async function getCurrentUser() {
     return {
       id: session.user.id,
       username: session.user.username,
+      isAdmin: session.user.isAdmin,
     };
   } catch {
     return null;
@@ -99,6 +100,16 @@ export async function requireUser() {
 
   if (!user) {
     throw new Error("Unauthorized");
+  }
+
+  return user;
+}
+
+export async function requireAdmin() {
+  const user = await requireUser();
+
+  if (!user.isAdmin) {
+    throw new Error("Forbidden");
   }
 
   return user;

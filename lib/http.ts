@@ -7,3 +7,7 @@ export function jsonError(message: string, status = 400) {
 export function isUnauthorized(error: unknown) {
   return error instanceof Error && error.message === "Unauthorized";
 }
+
+export function isForbidden(error: unknown) {
+  return error instanceof Error && error.message === "Forbidden";
+}
