@@ -30,7 +30,7 @@ npm run dev
 ```env
 DATABASE_URL="file:../data/app.db"
 AUTH_SECRET="change-this-to-a-random-string-with-at-least-32-characters"
-AUTH_COOKIE_SECURE=""
+AUTH_COOKIE_SECURE="true"
 ADMIN_USERNAME="admin"
 ADMIN_PASSWORD="change-this-password"
 MODEL_PROVIDER="openai"
@@ -56,7 +56,7 @@ docker compose logs -f ai-chat
 
 SQLite 数据会持久化到宿主机 `./data`。容器启动时会自动执行 Prisma migration，并根据 `.env` 创建或更新 owner 账号。
 
-公网部署建议放在 Nginx/Caddy HTTPS 后面。临时 HTTP 测试时可以设置 `AUTH_COOKIE_SECURE="false"`，正式 HTTPS 时建议删除该值或设为 `"true"`。
+公网部署建议放在 Nginx/Caddy HTTPS 后面，并保持 `AUTH_COOKIE_SECURE="true"`。临时 HTTP 测试时才设置为 `"false"`。
 
 ## 模型配置示例
 

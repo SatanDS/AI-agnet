@@ -35,24 +35,24 @@ export function LoginForm() {
   }
 
   return (
-    <section className="w-full max-w-sm rounded-lg border border-line bg-white p-6 shadow-soft">
+    <section className="w-full max-w-sm rounded-3xl border border-white/10 bg-zinc-950/80 p-6 text-zinc-100 shadow-2xl shadow-blue-950/20 backdrop-blur-2xl">
       <div className="mb-6 flex items-center gap-3">
-        <div className="flex h-11 w-11 items-center justify-center rounded-md bg-brand text-white">
+        <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-zinc-950">
           <LockKeyhole size={22} aria-hidden="true" />
         </div>
         <div>
-          <h1 className="text-xl font-semibold text-ink">森岳 AI Agent</h1>
-          <p className="mt-1 text-sm text-slate-500">登录后继续使用</p>
+          <h1 className="text-xl font-semibold text-white">森岳 AI Agent</h1>
+          <p className="mt-1 text-sm text-zinc-500">登录后继续使用</p>
         </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <label className="block">
-          <span className="mb-1 block text-sm font-medium text-slate-700">
+          <span className="mb-1 block text-sm font-medium text-zinc-300">
             账号
           </span>
           <input
-            className="h-11 w-full rounded-md border border-line px-3 text-ink outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
+            className="h-11 w-full rounded-full border border-white/10 bg-white/5 px-4 text-zinc-100 outline-none transition placeholder:text-zinc-600 focus:border-white/25 focus:bg-white/8"
             value={username}
             onChange={(event) => setUsername(event.target.value)}
             autoComplete="username"
@@ -61,11 +61,11 @@ export function LoginForm() {
         </label>
 
         <label className="block">
-          <span className="mb-1 block text-sm font-medium text-slate-700">
+          <span className="mb-1 block text-sm font-medium text-zinc-300">
             密码
           </span>
           <input
-            className="h-11 w-full rounded-md border border-line px-3 text-ink outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
+            className="h-11 w-full rounded-full border border-white/10 bg-white/5 px-4 text-zinc-100 outline-none transition placeholder:text-zinc-600 focus:border-white/25 focus:bg-white/8"
             type="password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
@@ -75,13 +75,13 @@ export function LoginForm() {
         </label>
 
         {error ? (
-          <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <p className="rounded-2xl border border-red-400/20 bg-red-500/10 px-3 py-2 text-sm text-red-200">
             {error}
           </p>
         ) : null}
 
         <button
-          className="flex h-11 w-full items-center justify-center gap-2 rounded-md bg-brand px-4 font-medium text-white transition hover:bg-teal-800"
+          className="flex h-11 w-full items-center justify-center gap-2 rounded-full bg-white px-4 font-medium text-zinc-950 transition hover:bg-zinc-200"
           type="submit"
           disabled={loading}
         >

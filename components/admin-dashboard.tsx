@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
@@ -395,17 +395,17 @@ export function AdminDashboard({
   const isOpenAIProvider = settings.MODEL_PROVIDER === "openai";
 
   return (
-    <main className="min-h-screen bg-mist text-ink">
-      <header className="border-b border-line bg-white">
+    <main className="ai-ambient min-h-screen text-zinc-100">
+      <header className="border-b border-white/10 bg-black/20 backdrop-blur-xl">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
           <div>
             <h1 className="text-xl font-semibold">管理后台</h1>
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="mt-1 text-sm text-zinc-500">
               当前账号：{username} · {roleLabel(role)}
             </p>
           </div>
           <Link
-            className="flex h-10 items-center gap-2 rounded-md border border-line px-3 text-sm font-medium hover:bg-slate-100"
+            className="flex h-10 items-center gap-2 rounded-full border border-white/10 px-4 text-sm font-medium text-zinc-200 transition hover:bg-white/10 hover:text-white"
             href="/"
           >
             <ArrowLeft size={17} aria-hidden="true" />
@@ -416,24 +416,24 @@ export function AdminDashboard({
 
       <div className="mx-auto max-w-6xl px-4 py-6">
         {error ? (
-          <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div className="mb-4 rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
             {error}
           </div>
         ) : null}
         {status ? (
-          <div className="mb-4 rounded-md border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-800">
+          <div className="mb-4 rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
             {status}
           </div>
         ) : null}
 
         {loading ? (
-          <div className="flex items-center gap-2 text-sm text-slate-500">
+          <div className="flex items-center gap-2 text-sm text-zinc-500">
             <Loader2 className="animate-spin" size={18} aria-hidden="true" />
             正在加载后台数据
           </div>
         ) : (
           <div className="space-y-6">
-            <section className="rounded-lg border border-line bg-white p-5 shadow-soft">
+            <section className="rounded-3xl border border-white/10 bg-zinc-950/80 p-5 shadow-2xl shadow-black/20 backdrop-blur-2xl">
               <div className="mb-5 flex items-center gap-2">
                 <Shield size={20} aria-hidden="true" />
                 <h2 className="text-base font-semibold">用户管理</h2>
@@ -444,14 +444,14 @@ export function AdminDashboard({
                 className="mb-5 grid gap-3 md:grid-cols-[1fr_1fr_160px_auto]"
               >
                 <input
-                  className="h-10 rounded-md border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
+                  className="h-10 rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-white/25 focus:bg-white/8"
                   placeholder="账号"
                   value={newUsername}
                   onChange={(event) => setNewUsername(event.target.value)}
                   required
                 />
                 <input
-                  className="h-10 rounded-md border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
+                  className="h-10 rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-white/25 focus:bg-white/8"
                   placeholder="密码，至少 8 位"
                   type="password"
                   value={newPassword}
@@ -459,7 +459,7 @@ export function AdminDashboard({
                   required
                 />
                 <select
-                  className="h-10 rounded-md border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
+                  className="h-10 rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-zinc-100 outline-none focus:border-white/25 focus:bg-white/8"
                   value={isOwner ? newRole : "user"}
                   onChange={(event) => setNewRole(event.target.value as UserRole)}
                   disabled={!isOwner}
@@ -473,7 +473,7 @@ export function AdminDashboard({
                   )}
                 </select>
                 <button
-                  className="flex h-10 items-center justify-center gap-2 rounded-md bg-brand px-3 text-sm font-medium text-white hover:bg-teal-800"
+                  className="flex h-10 items-center justify-center gap-2 rounded-xl bg-white px-3 text-sm font-medium text-zinc-950 hover:bg-zinc-200"
                   type="submit"
                 >
                   <UserPlus size={17} aria-hidden="true" />
@@ -484,7 +484,7 @@ export function AdminDashboard({
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[700px] border-collapse text-sm">
                   <thead>
-                    <tr className="border-b border-line text-left text-slate-500">
+                    <tr className="border-b border-white/10 text-left text-zinc-500">
                       <th className="py-2 pr-3 font-medium">账号</th>
                       <th className="py-2 pr-3 font-medium">身份</th>
                       <th className="py-2 pr-3 font-medium">对话数</th>
@@ -495,18 +495,18 @@ export function AdminDashboard({
                   <tbody>
                     {users.length === 0 ? (
                       <tr>
-                        <td className="py-6 text-center text-slate-500" colSpan={5}>
+                        <td className="py-6 text-center text-zinc-500" colSpan={5}>
                           暂无可管理用户
                         </td>
                       </tr>
                     ) : (
                       users.map((user) => (
-                        <tr key={user.id} className="border-b border-line last:border-0">
+                        <tr key={user.id} className="border-b border-white/10 last:border-0">
                           <td className="py-3 pr-3 font-medium">{user.username}</td>
                           <td className="py-3 pr-3">
                             {isOwner ? (
                               <select
-                                className="h-9 rounded-md border border-line px-2 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
+                                className="h-9 rounded-xl border border-white/10 bg-white/5 px-2 text-sm text-zinc-100 outline-none focus:border-white/25 focus:bg-white/8"
                                 value={user.role}
                                 onChange={(event) =>
                                   updateUserRole(user, event.target.value as UserRole)
@@ -524,12 +524,12 @@ export function AdminDashboard({
                             )}
                           </td>
                           <td className="py-3 pr-3">{user._count?.conversations ?? 0}</td>
-                          <td className="py-3 pr-3 text-slate-500">
+                          <td className="py-3 pr-3 text-zinc-500">
                             {formatDate(user.createdAt)}
                           </td>
                           <td className="flex flex-wrap gap-2 py-3 pr-3">
                             <button
-                              className="flex items-center gap-1 rounded-md border border-line px-2 py-1 hover:bg-slate-100"
+                              className="flex items-center gap-1 rounded-xl border border-white/10 px-2 py-1 text-zinc-200 hover:bg-white/10"
                               onClick={() => resetPassword(user)}
                               type="button"
                             >
@@ -537,7 +537,7 @@ export function AdminDashboard({
                               改密码
                             </button>
                             <button
-                              className="flex items-center gap-1 rounded-md border border-red-200 px-2 py-1 text-red-700 hover:bg-red-50"
+                              className="flex items-center gap-1 rounded-xl border border-red-400/20 px-2 py-1 text-red-200 hover:bg-red-500/10"
                               onClick={() => deleteUser(user)}
                               type="button"
                             >
@@ -555,7 +555,7 @@ export function AdminDashboard({
 
             {isOwner ? (
               <div className="grid gap-6 lg:grid-cols-[420px_1fr]">
-                <section className="rounded-lg border border-line bg-white p-5 shadow-soft">
+                <section className="rounded-3xl border border-white/10 bg-zinc-950/80 p-5 shadow-2xl shadow-black/20 backdrop-blur-2xl">
                   <div className="mb-5 flex items-center gap-2">
                     <SlidersHorizontal size={20} aria-hidden="true" />
                     <h2 className="text-base font-semibold">模型设置</h2>
@@ -563,11 +563,11 @@ export function AdminDashboard({
 
                   <form onSubmit={saveSettings} className="space-y-4">
                     <label className="block">
-                      <span className="mb-1 block text-sm font-medium text-slate-700">
+                      <span className="mb-1 block text-sm font-medium text-zinc-300">
                         模型来源
                       </span>
                       <select
-                        className="h-10 w-full rounded-md border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
+                        className="h-10 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-white/25 focus:bg-white/8"
                         value={settings.MODEL_PROVIDER}
                         onChange={(event) =>
                           updateSettings({
@@ -585,11 +585,11 @@ export function AdminDashboard({
                     {isOpenAIProvider ? (
                       <>
                         <label className="block">
-                          <span className="mb-1 block text-sm font-medium text-slate-700">
+                          <span className="mb-1 block text-sm font-medium text-zinc-300">
                             OpenAI 模型
                           </span>
                           <select
-                            className="h-10 w-full rounded-md border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
+                            className="h-10 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-white/25 focus:bg-white/8"
                             value={settings.OPENAI_MODEL}
                             onChange={(event) =>
                               updateSettings({ OPENAI_MODEL: event.target.value })
@@ -604,11 +604,11 @@ export function AdminDashboard({
                         </label>
 
                         <label className="block">
-                          <span className="mb-1 block text-sm font-medium text-slate-700">
+                          <span className="mb-1 block text-sm font-medium text-zinc-300">
                             OpenAI API Key
                           </span>
                           <input
-                            className="h-10 w-full rounded-md border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
+                            className="h-10 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-white/25 focus:bg-white/8"
                             placeholder={
                               settings.OPENAI_API_KEY_MASKED
                                 ? `当前：${settings.OPENAI_API_KEY_MASKED}`
@@ -624,11 +624,11 @@ export function AdminDashboard({
                     ) : (
                       <>
                         <label className="block">
-                          <span className="mb-1 block text-sm font-medium text-slate-700">
+                          <span className="mb-1 block text-sm font-medium text-zinc-300">
                             Base URL
                           </span>
                           <input
-                            className="h-10 w-full rounded-md border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
+                            className="h-10 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-white/25 focus:bg-white/8"
                             placeholder="https://api.example.com/v1"
                             value={settings.LOCAL_OPENAI_BASE_URL}
                             onChange={(event) =>
@@ -640,12 +640,12 @@ export function AdminDashboard({
                         </label>
 
                         <label className="block">
-                          <span className="mb-1 block text-sm font-medium text-slate-700">
+                          <span className="mb-1 block text-sm font-medium text-zinc-300">
                             模型名称
                           </span>
                           {localModels.length > 0 ? (
                             <select
-                              className="h-10 w-full rounded-md border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
+                              className="h-10 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-white/25 focus:bg-white/8"
                               value={settings.LOCAL_OPENAI_MODEL}
                               onChange={(event) =>
                                 updateSettings({
@@ -661,7 +661,7 @@ export function AdminDashboard({
                             </select>
                           ) : (
                             <input
-                              className="h-10 w-full rounded-md border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
+                              className="h-10 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-white/25 focus:bg-white/8"
                               placeholder="填写服务商提供的模型名"
                               value={settings.LOCAL_OPENAI_MODEL}
                               onChange={(event) =>
@@ -674,11 +674,11 @@ export function AdminDashboard({
                         </label>
 
                         <label className="block">
-                          <span className="mb-1 block text-sm font-medium text-slate-700">
+                          <span className="mb-1 block text-sm font-medium text-zinc-300">
                             API Key
                           </span>
                           <input
-                            className="h-10 w-full rounded-md border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
+                            className="h-10 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-white/25 focus:bg-white/8"
                             placeholder={
                               settings.LOCAL_OPENAI_API_KEY_MASKED
                                 ? `当前：${settings.LOCAL_OPENAI_API_KEY_MASKED}`
@@ -696,7 +696,7 @@ export function AdminDashboard({
                     )}
 
                     <button
-                      className="flex h-10 w-full items-center justify-center gap-2 rounded-md bg-brand px-3 text-sm font-medium text-white hover:bg-teal-800"
+                      className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-white px-3 text-sm font-medium text-zinc-950 hover:bg-zinc-200"
                       disabled={savingSettings}
                       type="submit"
                     >
@@ -709,7 +709,7 @@ export function AdminDashboard({
                     </button>
                     {!isOpenAIProvider ? (
                       <button
-                        className="flex h-10 w-full items-center justify-center gap-2 rounded-md border border-line px-3 text-sm font-medium text-slate-700 hover:bg-slate-100"
+                        className="flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-white/10 px-3 text-sm font-medium text-zinc-300 hover:bg-white/10 hover:text-white"
                         disabled={testingModel}
                         onClick={testModelSettings}
                         type="button"
@@ -727,7 +727,7 @@ export function AdminDashboard({
                   </form>
                 </section>
 
-                <section className="rounded-lg border border-line bg-white p-5 shadow-soft">
+                <section className="rounded-3xl border border-white/10 bg-zinc-950/80 p-5 shadow-2xl shadow-black/20 backdrop-blur-2xl">
                   <div className="mb-5 flex items-center gap-2">
                     <Save size={20} aria-hidden="true" />
                     <h2 className="text-base font-semibold">聊天预设</h2>
@@ -735,11 +735,11 @@ export function AdminDashboard({
 
                   <form onSubmit={savePresets} className="space-y-4">
                     <label className="block">
-                      <span className="mb-1 block text-sm font-medium text-slate-700">
+                      <span className="mb-1 block text-sm font-medium text-zinc-300">
                         普通用户预设
                       </span>
                       <textarea
-                        className="min-h-36 w-full resize-y rounded-md border border-line px-3 py-2 text-sm leading-6 outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
+                        className="min-h-36 w-full resize-y rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm leading-6 text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-white/25 focus:bg-white/8"
                         value={presets.USER_CHAT_PRESET}
                         onChange={(event) =>
                           updatePresets({ USER_CHAT_PRESET: event.target.value })
@@ -747,11 +747,11 @@ export function AdminDashboard({
                       />
                     </label>
                     <label className="block">
-                      <span className="mb-1 block text-sm font-medium text-slate-700">
+                      <span className="mb-1 block text-sm font-medium text-zinc-300">
                         管理员预设
                       </span>
                       <textarea
-                        className="min-h-36 w-full resize-y rounded-md border border-line px-3 py-2 text-sm leading-6 outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
+                        className="min-h-36 w-full resize-y rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm leading-6 text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-white/25 focus:bg-white/8"
                         value={presets.ADMIN_CHAT_PRESET}
                         onChange={(event) =>
                           updatePresets({ ADMIN_CHAT_PRESET: event.target.value })
@@ -759,7 +759,7 @@ export function AdminDashboard({
                       />
                     </label>
                     <button
-                      className="flex h-10 w-full items-center justify-center gap-2 rounded-md bg-brand px-3 text-sm font-medium text-white hover:bg-teal-800"
+                      className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-white px-3 text-sm font-medium text-zinc-950 hover:bg-zinc-200"
                       disabled={savingPresets}
                       type="submit"
                     >
@@ -776,14 +776,14 @@ export function AdminDashboard({
             ) : null}
 
             {isOwner ? (
-              <section className="rounded-lg border border-line bg-white p-5 shadow-soft">
+              <section className="rounded-3xl border border-white/10 bg-zinc-950/80 p-5 shadow-2xl shadow-black/20 backdrop-blur-2xl">
                 <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
                     <ClipboardList size={20} aria-hidden="true" />
                     <h2 className="text-base font-semibold">提问行为日志</h2>
                   </div>
                   <button
-                    className="h-9 rounded-md border border-line px-3 text-sm font-medium hover:bg-slate-100"
+                    className="h-9 rounded-xl border border-white/10 px-3 text-sm font-medium hover:bg-white/10"
                     onClick={refreshLogs}
                     type="button"
                   >
@@ -794,7 +794,7 @@ export function AdminDashboard({
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[820px] border-collapse text-sm">
                     <thead>
-                      <tr className="border-b border-line text-left text-slate-500">
+                      <tr className="border-b border-white/10 text-left text-zinc-500">
                         <th className="py-2 pr-3 font-medium">时间</th>
                         <th className="py-2 pr-3 font-medium">用户</th>
                         <th className="py-2 pr-3 font-medium">身份</th>
@@ -804,14 +804,14 @@ export function AdminDashboard({
                     <tbody>
                       {logs.length === 0 ? (
                         <tr>
-                          <td className="py-6 text-center text-slate-500" colSpan={4}>
+                          <td className="py-6 text-center text-zinc-500" colSpan={4}>
                             暂无提问记录
                           </td>
                         </tr>
                       ) : (
                         logs.map((log) => (
-                          <tr key={log.id} className="border-b border-line last:border-0">
-                            <td className="whitespace-nowrap py-3 pr-3 text-slate-500">
+                          <tr key={log.id} className="border-b border-white/10 last:border-0">
+                            <td className="whitespace-nowrap py-3 pr-3 text-zinc-500">
                               {formatDate(log.createdAt)}
                             </td>
                             <td className="py-3 pr-3 font-medium">{log.username}</td>
@@ -857,3 +857,5 @@ function formatDate(value: string) {
     minute: "2-digit",
   }).format(new Date(value));
 }
+
+

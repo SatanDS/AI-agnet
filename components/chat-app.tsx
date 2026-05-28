@@ -2,12 +2,17 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  Compass,
   LogOut,
   Menu,
+  MessageSquare,
   MessageSquarePlus,
   PanelLeftClose,
+  PanelLeftOpen,
+  Search,
   Send,
   Settings,
+  Sparkles,
   Trash2,
 } from "lucide-react";
 import clsx from "clsx";
@@ -51,6 +56,7 @@ export function ChatApp({
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
+  const hasMessages = messages.length > 0;
 
   const activeConversation = useMemo(
     () => conversations.find((conversation) => conversation.id === activeId),
@@ -126,6 +132,7 @@ export function ChatApp({
       setConversations((current) => [payload.conversation, ...current]);
       setActiveId(payload.conversation.id);
       setMessages([]);
+      setSidebarOpen(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "无法创建对话。");
     }
@@ -282,31 +289,71 @@ export function ChatApp({
   }
 
   return (
-    <main className="flex h-screen overflow-hidden bg-mist text-ink">
+    <main className="ai-ambient flex h-screen overflow-hidden text-zinc-100">
+      <nav className="z-40 flex w-14 shrink-0 flex-col items-center border-r border-white/5 bg-black/20 px-2 py-3 backdrop-blur-xl">
+        <button
+          className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-zinc-200 transition hover:bg-white/15"
+          onClick={() => setSidebarOpen((current) => !current)}
+          title={sidebarOpen ? "关闭侧栏" : "打开侧栏"}
+          type="button"
+        >
+          {sidebarOpen ? (
+            <PanelLeftClose size={18} aria-hidden="true" />
+          ) : (
+            <PanelLeftOpen size={18} aria-hidden="true" />
+          )}
+        </button>
+
+        <div className="mt-5 flex flex-1 flex-col items-center gap-2">
+          <IconButton icon={<MessageSquarePlus size={18} />} label="新对话" onClick={createConversation} />
+          <IconButton icon={<Search size={18} />} label="搜索" onClick={() => setSidebarOpen(true)} />
+          <IconButton icon={<Compass size={18} />} label="探索" onClick={() => setSidebarOpen(true)} />
+        </div>
+
+        <div className="flex flex-col items-center gap-2">
+          {role !== "user" ? (
+            <a
+              className="flex h-9 w-9 items-center justify-center rounded-full text-zinc-300 transition hover:bg-white/10 hover:text-white"
+              href="/admin"
+              title="管理后台"
+            >
+              <Settings size={18} aria-hidden="true" />
+            </a>
+          ) : null}
+          <button
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-sky-500 text-sm font-semibold text-white transition hover:bg-sky-400"
+            title={username}
+            type="button"
+          >
+            {username.slice(0, 1).toUpperCase()}
+          </button>
+        </div>
+      </nav>
+
       <aside
         className={clsx(
-          "absolute inset-y-0 left-0 z-30 flex w-[292px] flex-col border-r border-line bg-white transition-transform md:relative md:translate-x-0",
-          sidebarOpen ? "translate-x-0" : "-translate-x-full",
+          "absolute inset-y-0 left-14 z-30 flex w-[300px] flex-col border-r border-white/8 bg-zinc-950/80 shadow-2xl shadow-black/40 backdrop-blur-2xl transition-transform md:relative md:left-0",
+          sidebarOpen ? "translate-x-0" : "-translate-x-[300px] md:-ml-[300px]",
         )}
       >
-        <div className="flex h-16 items-center justify-between border-b border-line px-4">
-          <div>
-            <p className="text-sm font-semibold">森岳 AI Agent</p>
-            <p className="text-xs text-slate-500">{username}</p>
+        <div className="flex h-16 items-center justify-between border-b border-white/8 px-4">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-white">森岳 AI Agent</p>
+            <p className="mt-0.5 truncate text-xs text-zinc-500">{username}</p>
           </div>
           <button
-            className="rounded-md p-2 text-slate-500 hover:bg-slate-100 hover:text-ink"
+            className="flex h-9 w-9 items-center justify-center rounded-full text-zinc-400 transition hover:bg-white/10 hover:text-white"
             onClick={() => setSidebarOpen(false)}
             title="收起侧边栏"
             type="button"
           >
-            <PanelLeftClose size={19} aria-hidden="true" />
+            <PanelLeftClose size={18} aria-hidden="true" />
           </button>
         </div>
 
-        <div className="border-b border-line p-3">
+        <div className="border-b border-white/8 p-3">
           <button
-            className="flex h-10 w-full items-center justify-center gap-2 rounded-md bg-brand px-3 text-sm font-medium text-white hover:bg-teal-800"
+            className="flex h-11 w-full items-center justify-center gap-2 rounded-full bg-white px-4 text-sm font-medium text-zinc-950 transition hover:bg-zinc-200"
             onClick={createConversation}
             type="button"
           >
@@ -317,16 +364,16 @@ export function ChatApp({
 
         <div className="min-h-0 flex-1 overflow-y-auto px-2 py-3">
           {loadingConversations ? (
-            <p className="px-3 py-2 text-sm text-slate-500">正在加载对话</p>
+            <p className="px-3 py-2 text-sm text-zinc-500">正在加载对话</p>
           ) : conversations.length === 0 ? (
-            <p className="px-3 py-2 text-sm text-slate-500">暂无对话</p>
+            <p className="px-3 py-2 text-sm text-zinc-500">暂无对话</p>
           ) : (
             conversations.map((conversation) => (
               <div key={conversation.id} className="group flex items-center gap-1">
                 <button
                   className={clsx(
-                    "min-w-0 flex-1 rounded-md px-3 py-2 text-left text-sm hover:bg-slate-100",
-                    activeId === conversation.id && "bg-teal-50 text-brand",
+                    "min-w-0 flex-1 rounded-xl px-3 py-2 text-left text-sm text-zinc-300 transition hover:bg-white/8 hover:text-white",
+                    activeId === conversation.id && "bg-white/10 text-white",
                   )}
                   onClick={() => openConversation(conversation.id)}
                   type="button"
@@ -334,30 +381,21 @@ export function ChatApp({
                   <span className="block truncate">{conversation.title}</span>
                 </button>
                 <button
-                  className="rounded-md p-2 text-slate-400 opacity-0 hover:bg-red-50 hover:text-red-700 group-hover:opacity-100"
+                  className="rounded-full p-2 text-zinc-600 opacity-0 transition hover:bg-red-500/10 hover:text-red-300 group-hover:opacity-100"
                   onClick={() => deleteConversation(conversation.id)}
                   title="删除对话"
                   type="button"
                 >
-                  <Trash2 size={16} aria-hidden="true" />
+                  <Trash2 size={15} aria-hidden="true" />
                 </button>
               </div>
             ))
           )}
         </div>
 
-        <div className="border-t border-line p-3">
-          {role !== "user" ? (
-            <a
-              className="mb-2 flex h-10 w-full items-center justify-center gap-2 rounded-md border border-line text-sm font-medium text-slate-700 hover:bg-slate-100"
-              href="/admin"
-            >
-              <Settings size={17} aria-hidden="true" />
-              管理后台
-            </a>
-          ) : null}
+        <div className="border-t border-white/8 p-3">
           <button
-            className="flex h-10 w-full items-center justify-center gap-2 rounded-md border border-line text-sm font-medium text-slate-700 hover:bg-slate-100"
+            className="flex h-10 w-full items-center justify-center gap-2 rounded-full border border-white/10 text-sm font-medium text-zinc-300 transition hover:bg-white/10 hover:text-white"
             onClick={logout}
             type="button"
           >
@@ -368,78 +406,118 @@ export function ChatApp({
       </aside>
 
       <section className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-16 items-center gap-3 border-b border-line bg-white px-4">
+        <header className="flex h-14 items-center justify-between px-4 md:px-6">
           <button
-            className="rounded-md p-2 text-slate-600 hover:bg-slate-100"
+            className="flex h-9 items-center gap-2 rounded-full bg-white px-4 text-sm font-medium text-zinc-950 shadow-lg shadow-black/20 transition hover:bg-zinc-200 md:hidden"
             onClick={() => setSidebarOpen(true)}
-            title="打开侧边栏"
             type="button"
           >
-            <Menu size={20} aria-hidden="true" />
+            <Menu size={17} aria-hidden="true" />
+            打开侧栏
           </button>
-          <div className="min-w-0">
-            <h1 className="truncate text-base font-semibold">
+          <div className="hidden min-w-0 md:block">
+            <p className="truncate text-sm text-zinc-500">
               {activeConversation?.title ?? "新对话"}
-            </h1>
-            <p className="text-xs text-slate-500">支持流式输出</p>
+            </p>
           </div>
+          <Sparkles className="text-zinc-500" size={20} aria-hidden="true" />
         </header>
 
         {error ? (
-          <div className="border-b border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          <div className="mx-4 rounded-xl border border-red-400/20 bg-red-500/10 px-4 py-2 text-sm text-red-200">
             {error}
           </div>
         ) : null}
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-6">
-          <div className="mx-auto flex max-w-3xl flex-col gap-5">
-            {loadingMessages ? (
-              <p className="text-sm text-slate-500">正在加载消息</p>
-            ) : messages.length === 0 ? (
-              <div className="rounded-lg border border-line bg-white p-6 shadow-soft">
-                <h2 className="text-lg font-semibold">开始一段对话</h2>
-                <p className="mt-2 text-sm leading-6 text-slate-600">
-                  输入问题后，后端会使用当前配置的模型进行回复。普通用户和管理员会应用对应的聊天预设。
-                </p>
+        <div
+          className={clsx(
+            "min-h-0 flex-1 overflow-y-auto px-4",
+            hasMessages ? "py-5" : "flex items-center justify-center pb-24",
+          )}
+        >
+          {loadingMessages ? (
+            <p className="text-sm text-zinc-500">正在加载消息</p>
+          ) : hasMessages ? (
+            <div className="mx-auto flex max-w-3xl flex-col gap-5 pb-28">
+              {messages.map((message) => (
+                <MessageBubble key={message.id} message={message} />
+              ))}
+              <div ref={scrollRef} />
+            </div>
+          ) : (
+            <div className="mx-auto w-full max-w-3xl text-center">
+              <h1 className="text-3xl font-semibold tracking-normal text-zinc-100 md:text-4xl">
+                {username}，请说
+              </h1>
+              <p className="mt-4 text-sm text-zinc-500">
+                简洁、安全、私有的 AI 对话空间
+              </p>
+              <div className="mt-10">
+                <ChatComposer
+                  input={input}
+                  sending={sending}
+                  onInput={setInput}
+                  onSubmit={handleSubmit}
+                />
               </div>
-            ) : (
-              messages.map((message) => <MessageBubble key={message.id} message={message} />)
-            )}
-            <div ref={scrollRef} />
-          </div>
+            </div>
+          )}
         </div>
 
-        <form
-          onSubmit={handleSubmit}
-          className="border-t border-line bg-white px-4 py-4"
-        >
-          <div className="mx-auto flex max-w-3xl items-end gap-3">
-            <textarea
-              className="max-h-40 min-h-12 flex-1 resize-none rounded-md border border-line px-3 py-3 text-sm leading-6 outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
-              value={input}
-              onChange={(event) => setInput(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && !event.shiftKey) {
-                  event.preventDefault();
-                  event.currentTarget.form?.requestSubmit();
-                }
-              }}
-              placeholder="输入消息"
-              rows={1}
-              disabled={sending}
+        {hasMessages ? (
+          <div className="border-t border-white/5 bg-black/20 px-4 py-4 backdrop-blur-xl">
+            <ChatComposer
+              input={input}
+              sending={sending}
+              onInput={setInput}
+              onSubmit={handleSubmit}
             />
-            <button
-              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-brand text-white hover:bg-teal-800"
-              type="submit"
-              title="发送"
-              disabled={sending || !input.trim()}
-            >
-              <Send size={19} aria-hidden="true" />
-            </button>
           </div>
-        </form>
+        ) : null}
       </section>
     </main>
+  );
+}
+
+function ChatComposer({
+  input,
+  sending,
+  onInput,
+  onSubmit,
+}: {
+  input: string;
+  sending: boolean;
+  onInput: (value: string) => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+  return (
+    <form onSubmit={onSubmit} className="mx-auto w-full max-w-3xl">
+      <div className="flex min-h-16 items-end gap-3 rounded-full border border-white/8 bg-zinc-900/95 px-4 py-3 shadow-2xl shadow-blue-950/20 backdrop-blur-xl transition focus-within:border-white/20">
+        <MessageSquarePlus className="mb-1 shrink-0 text-zinc-400" size={22} aria-hidden="true" />
+        <textarea
+          className="max-h-32 min-h-9 flex-1 resize-none bg-transparent py-1 text-base leading-7 text-zinc-100 outline-none placeholder:text-zinc-500"
+          value={input}
+          onChange={(event) => onInput(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && !event.shiftKey) {
+              event.preventDefault();
+              event.currentTarget.form?.requestSubmit();
+            }
+          }}
+          placeholder="询问森岳 AI"
+          rows={1}
+          disabled={sending}
+        />
+        <button
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-zinc-950 transition hover:bg-zinc-200 disabled:bg-white/30 disabled:text-zinc-500"
+          type="submit"
+          title="发送"
+          disabled={sending || !input.trim()}
+        >
+          <Send size={18} aria-hidden="true" />
+        </button>
+      </div>
+    </form>
   );
 }
 
@@ -450,13 +528,36 @@ function MessageBubble({ message }: { message: Message }) {
     <article className={clsx("flex", isUser ? "justify-end" : "justify-start")}>
       <div
         className={clsx(
-          "max-w-[88%] whitespace-pre-wrap rounded-lg px-4 py-3 text-sm leading-6 shadow-sm",
-          isUser ? "bg-brand text-white" : "border border-line bg-white text-ink",
+          "max-w-[88%] whitespace-pre-wrap rounded-2xl px-4 py-3 text-sm leading-6 shadow-lg",
+          isUser
+            ? "bg-white text-zinc-950 shadow-black/20"
+            : "border border-white/10 bg-white/8 text-zinc-100 shadow-black/10 backdrop-blur-xl",
         )}
       >
         {message.content || (message.pending ? "正在思考..." : "")}
       </div>
     </article>
+  );
+}
+
+function IconButton({
+  icon,
+  label,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      className="flex h-9 w-9 items-center justify-center rounded-full text-zinc-300 transition hover:bg-white/10 hover:text-white"
+      onClick={onClick}
+      title={label}
+      type="button"
+    >
+      {icon}
+    </button>
   );
 }
 
