@@ -111,7 +111,18 @@ export async function DELETE(_request: Request, context: RouteContext) {
       }
     }
 
-    await prisma.user.delete({ where: { id } });
+    await prisma.$transaction([
+      prisma.behaviorLog.updateMany({
+        where: { userId: id },
+        data: { userId: null },
+      }),
+      prisma.session.deleteMany({ where: { userId: id } }),
+      prisma.message.deleteMany({
+        where: { conversation: { userId: id } },
+      }),
+      prisma.conversation.deleteMany({ where: { userId: id } }),
+      prisma.user.delete({ where: { id } }),
+    ]);
 
     return NextResponse.json({ ok: true });
   } catch (error) {

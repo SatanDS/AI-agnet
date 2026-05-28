@@ -5,13 +5,16 @@ import Link from "next/link";
 import {
   ArrowLeft,
   ClipboardList,
+  FileText,
   KeyRound,
   Loader2,
   Save,
+  Search,
   Shield,
   SlidersHorizontal,
   Trash2,
   UserPlus,
+  X,
 } from "lucide-react";
 import type { UserRole } from "@/lib/auth";
 
@@ -45,13 +48,37 @@ type PresetSettings = {
   ADMIN_CHAT_PRESET: string;
 };
 
-type BehaviorLog = {
-  id: string;
+type BehaviorArchive = {
+  key: string;
+  userId: string | null;
   username: string;
   role: UserRole;
-  action: string;
+  latestContent: string;
+  latestAt: string;
+  questionCount: number;
+};
+
+type ArchiveMessage = {
+  id: string;
+  role: "user" | "assistant" | "system";
   content: string;
   createdAt: string;
+};
+
+type ArchiveConversation = {
+  id: string;
+  title: string;
+  updatedAt: string;
+  messages: ArchiveMessage[];
+};
+
+type ArchiveDetail = {
+  user: {
+    id: string;
+    username: string;
+    role: UserRole;
+  };
+  conversations: ArchiveConversation[];
 };
 
 const emptySettings: ModelSettings = {
@@ -86,7 +113,10 @@ export function AdminDashboard({
   const [settings, setSettings] = useState<ModelSettings>(emptySettings);
   const [modelOptions, setModelOptions] = useState<ModelOption[]>([]);
   const [presets, setPresets] = useState<PresetSettings>(emptyPresets);
-  const [logs, setLogs] = useState<BehaviorLog[]>([]);
+  const [archives, setArchives] = useState<BehaviorArchive[]>([]);
+  const [archiveSearch, setArchiveSearch] = useState("");
+  const [archiveDetail, setArchiveDetail] = useState<ArchiveDetail | null>(null);
+  const [loadingArchiveDetail, setLoadingArchiveDetail] = useState(false);
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [newRole, setNewRole] = useState<UserRole>("user");
@@ -148,7 +178,7 @@ export function AdminDashboard({
         setSettings(settingsPayload.settings);
         setModelOptions(settingsPayload.modelOptions);
         setPresets(presetsPayload.presets);
-        setLogs(logsPayload.logs);
+        setArchives(logsPayload.archives ?? []);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "无法加载后台数据。");
@@ -277,6 +307,9 @@ export function AdminDashboard({
 
       setStatus("用户已删除。");
       await loadUsers();
+      if (isOwner) {
+        await refreshLogs();
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "无法删除用户。");
     }
@@ -378,9 +411,36 @@ export function AdminDashboard({
         throw new Error("无法刷新行为日志。");
       }
       const payload = await response.json();
-      setLogs(payload.logs);
+      setArchives(payload.archives ?? []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "无法刷新行为日志。");
+    }
+  }
+
+  async function openArchiveDetail(archive: BehaviorArchive) {
+    if (!archive.userId) {
+      setError("该档案对应的用户已删除，只保留了历史提问摘要。");
+      return;
+    }
+
+    setLoadingArchiveDetail(true);
+    setError("");
+
+    try {
+      const response = await fetch(
+        `/api/admin/logs/${encodeURIComponent(archive.userId)}`,
+      );
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.error ?? "无法加载用户档案详情。");
+      }
+
+      const payload = await response.json();
+      setArchiveDetail(payload);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "无法加载用户档案详情。");
+    } finally {
+      setLoadingArchiveDetail(false);
     }
   }
 
@@ -393,6 +453,9 @@ export function AdminDashboard({
   }
 
   const isOpenAIProvider = settings.MODEL_PROVIDER === "openai";
+  const filteredArchives = archives.filter((archive) =>
+    archive.username.toLowerCase().includes(archiveSearch.trim().toLowerCase()),
+  );
 
   return (
     <main className="ai-ambient min-h-screen text-zinc-100">
@@ -782,44 +845,74 @@ export function AdminDashboard({
                     <ClipboardList size={20} aria-hidden="true" />
                     <h2 className="text-base font-semibold">提问行为日志</h2>
                   </div>
-                  <button
-                    className="h-9 rounded-xl border border-white/10 px-3 text-sm font-medium hover:bg-white/10"
-                    onClick={refreshLogs}
-                    type="button"
-                  >
-                    刷新
-                  </button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <label className="flex h-9 items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-zinc-300 focus-within:border-white/25">
+                      <Search size={15} aria-hidden="true" />
+                      <input
+                        className="w-44 bg-transparent outline-none placeholder:text-zinc-600"
+                        placeholder="搜索用户档案"
+                        value={archiveSearch}
+                        onChange={(event) => setArchiveSearch(event.target.value)}
+                      />
+                    </label>
+                    <button
+                      className="h-9 rounded-xl border border-white/10 px-3 text-sm font-medium hover:bg-white/10"
+                      onClick={refreshLogs}
+                      type="button"
+                    >
+                      刷新
+                    </button>
+                  </div>
                 </div>
 
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[820px] border-collapse text-sm">
+                  <table className="w-full min-w-[920px] border-collapse text-sm">
                     <thead>
                       <tr className="border-b border-white/10 text-left text-zinc-500">
-                        <th className="py-2 pr-3 font-medium">时间</th>
+                        <th className="py-2 pr-3 font-medium">最新提问时间</th>
                         <th className="py-2 pr-3 font-medium">用户</th>
                         <th className="py-2 pr-3 font-medium">身份</th>
-                        <th className="py-2 pr-3 font-medium">内容</th>
+                        <th className="py-2 pr-3 font-medium">最近内容</th>
+                        <th className="py-2 pr-3 font-medium">档案</th>
+                        <th className="py-2 pr-3 font-medium">操作</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {logs.length === 0 ? (
+                      {filteredArchives.length === 0 ? (
                         <tr>
-                          <td className="py-6 text-center text-zinc-500" colSpan={4}>
-                            暂无提问记录
+                          <td className="py-6 text-center text-zinc-500" colSpan={6}>
+                            暂无匹配档案
                           </td>
                         </tr>
                       ) : (
-                        logs.map((log) => (
-                          <tr key={log.id} className="border-b border-white/10 last:border-0">
+                        filteredArchives.map((archive) => (
+                          <tr key={archive.key} className="border-b border-white/10 last:border-0">
                             <td className="whitespace-nowrap py-3 pr-3 text-zinc-500">
-                              {formatDate(log.createdAt)}
+                              {formatDate(archive.latestAt)}
                             </td>
-                            <td className="py-3 pr-3 font-medium">{log.username}</td>
-                            <td className="py-3 pr-3">{roleLabel(log.role)}</td>
+                            <td className="py-3 pr-3 font-medium">{archive.username}</td>
+                            <td className="py-3 pr-3">{roleLabel(archive.role)}</td>
                             <td className="max-w-[520px] py-3 pr-3">
                               <span className="line-clamp-3 whitespace-pre-wrap">
-                                {log.content}
+                                {archive.latestContent}
                               </span>
+                            </td>
+                            <td className="py-3 pr-3">
+                              <span className="inline-flex items-center gap-1 rounded-full border border-white/10 px-2 py-1 text-xs text-zinc-300">
+                                <FileText size={13} aria-hidden="true" />
+                                {archive.username}
+                                <span className="text-zinc-500">({archive.questionCount})</span>
+                              </span>
+                            </td>
+                            <td className="py-3 pr-3">
+                              <button
+                                className="rounded-xl border border-white/10 px-3 py-1.5 text-sm text-zinc-200 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+                                disabled={!archive.userId || loadingArchiveDetail}
+                                onClick={() => openArchiveDetail(archive)}
+                                type="button"
+                              >
+                                详情
+                              </button>
                             </td>
                           </tr>
                         ))
@@ -832,6 +925,13 @@ export function AdminDashboard({
           </div>
         )}
       </div>
+
+      {archiveDetail ? (
+        <ArchiveDetailModal
+          detail={archiveDetail}
+          onClose={() => setArchiveDetail(null)}
+        />
+      ) : null}
     </main>
   );
 }
@@ -856,6 +956,87 @@ function formatDate(value: string) {
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(value));
+}
+
+function ArchiveDetailModal({
+  detail,
+  onClose,
+}: {
+  detail: ArchiveDetail;
+  onClose: () => void;
+}) {
+  const latestConversation = detail.conversations[0] ?? null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 px-4 py-8 backdrop-blur-md"
+      onClick={onClose}
+    >
+      <section
+        className="flex h-[78vh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-zinc-950/95 shadow-2xl shadow-black/50"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <header className="flex h-16 items-center justify-between border-b border-white/10 px-5">
+          <div className="min-w-0">
+            <h3 className="truncate text-base font-semibold">
+              {detail.user.username} 的档案详情
+            </h3>
+            <p className="mt-1 text-xs text-zinc-500">
+              {roleLabel(detail.user.role)} · 只读查看 · 默认显示最新对话
+            </p>
+          </div>
+          <button
+            className="flex h-9 w-9 items-center justify-center rounded-full text-zinc-400 transition hover:bg-white/10 hover:text-white"
+            onClick={onClose}
+            title="关闭"
+            type="button"
+          >
+            <X size={18} aria-hidden="true" />
+          </button>
+        </header>
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-6">
+          {!latestConversation ? (
+            <div className="flex h-full items-center justify-center text-sm text-zinc-500">
+              该用户暂无可查看对话，可能已被清空。
+            </div>
+          ) : (
+            <div className="mx-auto flex max-w-3xl flex-col gap-5">
+              <div className="mb-2 text-center">
+                <p className="text-sm font-medium text-zinc-300">
+                  {latestConversation.title}
+                </p>
+                <p className="mt-1 text-xs text-zinc-600">
+                  更新于 {formatDate(latestConversation.updatedAt)}
+                </p>
+              </div>
+              {latestConversation.messages.map((message) => (
+                <ReadOnlyMessage key={message.id} message={message} />
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function ReadOnlyMessage({ message }: { message: ArchiveMessage }) {
+  const isUser = message.role === "user";
+
+  return (
+    <article className={isUser ? "flex justify-end" : "flex justify-start"}>
+      <div
+        className={
+          isUser
+            ? "max-w-[82%] whitespace-pre-wrap rounded-2xl bg-white px-4 py-3 text-sm leading-6 text-zinc-950 shadow-lg shadow-black/20"
+            : "max-w-[82%] whitespace-pre-wrap rounded-2xl border border-white/10 bg-white/8 px-4 py-3 text-sm leading-6 text-zinc-100 shadow-lg shadow-black/10"
+        }
+      >
+        {message.content}
+      </div>
+    </article>
+  );
 }
 
 
