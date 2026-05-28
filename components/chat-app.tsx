@@ -290,7 +290,7 @@ export function ChatApp({
 
   return (
     <main className="ai-ambient flex h-screen overflow-hidden text-zinc-100">
-      <nav className="z-40 flex w-14 shrink-0 flex-col items-center border-r border-white/5 bg-black/20 px-2 py-3 backdrop-blur-xl">
+      <nav className="ai-subtle-border z-40 flex w-14 shrink-0 flex-col items-center border-r bg-black/20 px-2 py-3 backdrop-blur-xl">
         <button
           className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-zinc-200 transition hover:bg-white/15"
           onClick={() => setSidebarOpen((current) => !current)}
@@ -332,11 +332,13 @@ export function ChatApp({
 
       <aside
         className={clsx(
-          "absolute inset-y-0 left-14 z-30 flex w-[300px] flex-col border-r border-white/8 bg-zinc-950/80 shadow-2xl shadow-black/40 backdrop-blur-2xl transition-transform md:relative md:left-0",
-          sidebarOpen ? "translate-x-0" : "-translate-x-[300px] md:-ml-[300px]",
+          "sidebar-panel ai-soft-border absolute inset-y-0 left-14 z-30 flex w-[300px] flex-col border-r bg-zinc-950/80 shadow-2xl shadow-black/40 backdrop-blur-2xl md:relative md:left-0",
+          sidebarOpen
+            ? "translate-x-0 opacity-100 blur-0 scale-100"
+            : "-translate-x-[300px] opacity-0 blur-sm scale-[0.985] md:-ml-[300px]",
         )}
       >
-        <div className="flex h-16 items-center justify-between border-b border-white/8 px-4">
+        <div className="ai-subtle-border flex h-16 items-center justify-between border-b px-4">
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-white">森岳 AI Agent</p>
             <p className="mt-0.5 truncate text-xs text-zinc-500">{username}</p>
@@ -351,7 +353,7 @@ export function ChatApp({
           </button>
         </div>
 
-        <div className="border-b border-white/8 p-3">
+        <div className="ai-subtle-border border-b p-3">
           <button
             className="flex h-11 w-full items-center justify-center gap-2 rounded-full bg-white px-4 text-sm font-medium text-zinc-950 transition hover:bg-zinc-200"
             onClick={createConversation}
@@ -393,9 +395,9 @@ export function ChatApp({
           )}
         </div>
 
-        <div className="border-t border-white/8 p-3">
+        <div className="ai-subtle-border border-t p-3">
           <button
-            className="flex h-10 w-full items-center justify-center gap-2 rounded-full border border-white/10 text-sm font-medium text-zinc-300 transition hover:bg-white/10 hover:text-white"
+            className="ai-soft-border flex h-10 w-full items-center justify-center gap-2 rounded-full border text-sm font-medium text-zinc-300 transition hover:bg-white/10 hover:text-white"
             onClick={logout}
             type="button"
           >
@@ -452,7 +454,7 @@ export function ChatApp({
               <p className="mt-4 text-sm text-zinc-500">
                 简洁、安全、私有的 AI 对话空间
               </p>
-              <div className="mt-10">
+              <div className="composer-center mt-10">
                 <ChatComposer
                   input={input}
                   sending={sending}
@@ -465,7 +467,7 @@ export function ChatApp({
         </div>
 
         {hasMessages ? (
-          <div className="border-t border-white/5 bg-black/20 px-4 py-4 backdrop-blur-xl">
+          <div className="ai-subtle-border composer-dock border-t bg-black/20 px-4 py-4 backdrop-blur-xl">
             <ChatComposer
               input={input}
               sending={sending}
@@ -492,7 +494,7 @@ function ChatComposer({
 }) {
   return (
     <form onSubmit={onSubmit} className="mx-auto w-full max-w-3xl">
-      <div className="flex min-h-16 items-end gap-3 rounded-full border border-white/8 bg-zinc-900/95 px-4 py-3 shadow-2xl shadow-blue-950/20 backdrop-blur-xl transition focus-within:border-white/20">
+      <div className="ai-composer-shell ai-soft-border flex min-h-16 items-end gap-3 rounded-full border bg-zinc-900/95 px-4 py-3 shadow-2xl shadow-blue-950/20 backdrop-blur-xl transition duration-300 focus-within:scale-[1.01]">
         <MessageSquarePlus className="mb-1 shrink-0 text-zinc-400" size={22} aria-hidden="true" />
         <textarea
           className="max-h-32 min-h-9 flex-1 resize-none bg-transparent py-1 text-base leading-7 text-zinc-100 outline-none placeholder:text-zinc-500"
@@ -531,7 +533,7 @@ function MessageBubble({ message }: { message: Message }) {
           "max-w-[88%] whitespace-pre-wrap rounded-2xl px-4 py-3 text-sm leading-6 shadow-lg",
           isUser
             ? "bg-white text-zinc-950 shadow-black/20"
-            : "border border-white/10 bg-white/8 text-zinc-100 shadow-black/10 backdrop-blur-xl",
+            : "ai-soft-border border bg-white/8 text-zinc-100 shadow-black/10 backdrop-blur-xl",
         )}
       >
         {message.content || (message.pending ? "正在思考..." : "")}

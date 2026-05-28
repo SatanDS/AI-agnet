@@ -54,6 +54,71 @@ select {
   mask-image: radial-gradient(ellipse at center, black 0%, transparent 72%);
 }
 
+.ai-soft-border {
+  border-color: rgba(43, 64, 104, 0.58);
+}
+
+.ai-subtle-border {
+  border-color: rgba(31, 42, 68, 0.82);
+}
+
+.ai-glow-border {
+  border-color: rgba(73, 103, 159, 0.62);
+}
+
+.ai-composer-shell:focus-within {
+  border-color: rgba(73, 103, 159, 0.62);
+}
+
+.composer-center {
+  animation: composer-center 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  transform-origin: center;
+}
+
+.composer-dock {
+  animation: composer-dock 640ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  transform-origin: center;
+}
+
+.sidebar-panel {
+  transition:
+    transform 520ms cubic-bezier(0.22, 1, 0.36, 1),
+    margin-left 520ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 360ms ease,
+    filter 520ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes composer-center {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes composer-dock {
+  0% {
+    opacity: 0;
+    transform: translateY(-32vh) scale(1.045);
+    filter: blur(8px);
+  }
+
+  55% {
+    opacity: 1;
+    filter: blur(0);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
 button:disabled {
   cursor: not-allowed;
   opacity: 0.6;
