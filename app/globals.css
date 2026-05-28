@@ -76,16 +76,16 @@ select {
 }
 
 .composer-dock {
-  animation: composer-dock 640ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: composer-dock 760ms cubic-bezier(0.19, 1, 0.22, 1) both;
   transform-origin: center;
 }
 
 .sidebar-panel {
   transition:
-    transform 520ms cubic-bezier(0.22, 1, 0.36, 1),
-    margin-left 520ms cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 360ms ease,
-    filter 520ms cubic-bezier(0.22, 1, 0.36, 1);
+    transform 760ms cubic-bezier(0.19, 1, 0.22, 1),
+    margin-left 760ms cubic-bezier(0.19, 1, 0.22, 1),
+    opacity 520ms ease,
+    filter 760ms cubic-bezier(0.19, 1, 0.22, 1);
 }
 
 @keyframes composer-center {
@@ -103,11 +103,11 @@ select {
 @keyframes composer-dock {
   0% {
     opacity: 0;
-    transform: translateY(-32vh) scale(1.045);
+    transform: translateY(-28vh) scale(1.035);
     filter: blur(8px);
   }
 
-  55% {
+  62% {
     opacity: 1;
     filter: blur(0);
   }

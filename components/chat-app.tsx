@@ -407,7 +407,7 @@ export function ChatApp({
         </div>
       </aside>
 
-      <section className="flex min-w-0 flex-1 flex-col">
+      <section className="relative flex min-w-0 flex-1 flex-col">
         <header className="flex h-14 items-center justify-between px-4 md:px-6">
           <button
             className="flex h-9 items-center gap-2 rounded-full bg-white px-4 text-sm font-medium text-zinc-950 shadow-lg shadow-black/20 transition hover:bg-zinc-200 md:hidden"
@@ -434,13 +434,13 @@ export function ChatApp({
         <div
           className={clsx(
             "min-h-0 flex-1 overflow-y-auto px-4",
-            hasMessages ? "py-5" : "flex items-center justify-center pb-24",
+            hasMessages ? "py-5" : "flex items-center justify-center pb-28",
           )}
         >
           {loadingMessages ? (
             <p className="text-sm text-zinc-500">正在加载消息</p>
           ) : hasMessages ? (
-            <div className="mx-auto flex max-w-3xl flex-col gap-5 pb-28">
+            <div className="mx-auto flex max-w-3xl flex-col gap-5 pb-40">
               {messages.map((message) => (
                 <MessageBubble key={message.id} message={message} />
               ))}
@@ -467,13 +467,15 @@ export function ChatApp({
         </div>
 
         {hasMessages ? (
-          <div className="ai-subtle-border composer-dock border-t bg-black/20 px-4 py-4 backdrop-blur-xl">
+          <div className="pointer-events-none absolute inset-x-0 bottom-8 z-20 px-4 md:bottom-10">
+            <div className="composer-dock pointer-events-auto mx-auto w-full max-w-3xl">
             <ChatComposer
               input={input}
               sending={sending}
               onInput={setInput}
               onSubmit={handleSubmit}
             />
+            </div>
           </div>
         ) : null}
       </section>
@@ -493,9 +495,9 @@ function ChatComposer({
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
   return (
-    <form onSubmit={onSubmit} className="mx-auto w-full max-w-3xl">
-      <div className="ai-composer-shell ai-soft-border flex min-h-16 items-end gap-3 rounded-full border bg-zinc-900/95 px-4 py-3 shadow-2xl shadow-blue-950/20 backdrop-blur-xl transition duration-300 focus-within:scale-[1.01]">
-        <MessageSquarePlus className="mb-1 shrink-0 text-zinc-400" size={22} aria-hidden="true" />
+    <form onSubmit={onSubmit} className="mx-auto w-full max-w-[720px]">
+      <div className="ai-composer-shell ai-soft-border flex min-h-[58px] items-end gap-3 rounded-full border bg-zinc-900/95 px-4 py-2.5 shadow-2xl shadow-blue-950/20 backdrop-blur-xl transition duration-300 focus-within:scale-[1.01]">
+        <MessageSquarePlus className="mb-1 shrink-0 text-zinc-400" size={21} aria-hidden="true" />
         <textarea
           className="max-h-32 min-h-9 flex-1 resize-none bg-transparent py-1 text-base leading-7 text-zinc-100 outline-none placeholder:text-zinc-500"
           value={input}
@@ -511,7 +513,7 @@ function ChatComposer({
           disabled={sending}
         />
         <button
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-zinc-950 transition hover:bg-zinc-200 disabled:bg-white/30 disabled:text-zinc-500"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-zinc-700 text-zinc-300 transition hover:bg-white hover:text-zinc-950 disabled:bg-zinc-700/70 disabled:text-zinc-500"
           type="submit"
           title="发送"
           disabled={sending || !input.trim()}
