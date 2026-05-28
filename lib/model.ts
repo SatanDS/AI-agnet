@@ -11,6 +11,12 @@ export type StreamChunk = {
   done?: boolean;
 };
 
+export type OpenAICompatibleConfig = {
+  baseUrl: string;
+  apiKey?: string;
+  model?: string;
+};
+
 function encoderPayload(payload: StreamChunk) {
   return `data: ${JSON.stringify(payload)}\n\n`;
 }
@@ -82,10 +88,7 @@ async function* streamOpenAICompatibleChat(
   apiKey: string | undefined,
   model: string,
 ) {
-  const normalizedBaseUrl = baseUrl.replace(/\/$/, "");
-  const apiUrl = normalizedBaseUrl.endsWith("/v1")
-    ? `${normalizedBaseUrl}/chat/completions`
-    : `${normalizedBaseUrl}/v1/chat/completions`;
+  const apiUrl = getOpenAICompatibleUrl(baseUrl, "chat/completions");
 
   const response = await fetch(apiUrl, {
     method: "POST",
@@ -104,13 +107,74 @@ async function* streamOpenAICompatibleChat(
   });
 
   if (!response.ok || !response.body) {
-    throw new Error(await readError(response));
+    throw new Error(
+      `Local provider request failed (${response.status}) for model "${model}": ${await readError(response)}`,
+    );
   }
 
   yield* parseServerSentEvents(response.body, (event) => {
     const delta = event.choices?.[0]?.delta?.content;
     return typeof delta === "string" ? delta : "";
   });
+}
+
+export async function listOpenAICompatibleModels({
+  baseUrl,
+  apiKey,
+}: OpenAICompatibleConfig) {
+  const response = await fetch(getOpenAICompatibleUrl(baseUrl, "models"), {
+    method: "GET",
+    headers: {
+      ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Models request failed (${response.status}): ${await readError(response)}`);
+  }
+
+  const payload = await response.json();
+  const models = Array.isArray(payload.data)
+    ? payload.data
+        .map((item: { id?: unknown }) => item.id)
+        .filter((id: unknown): id is string => typeof id === "string" && id.length > 0)
+    : [];
+
+  return models;
+}
+
+export async function testOpenAICompatibleChat({
+  baseUrl,
+  apiKey,
+  model,
+}: Required<OpenAICompatibleConfig>) {
+  const response = await fetch(getOpenAICompatibleUrl(baseUrl, "chat/completions"), {
+    method: "POST",
+    headers: {
+      ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model,
+      messages: [{ role: "user", content: "ping" }],
+      stream: false,
+      max_tokens: 8,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Chat test failed (${response.status}) for model "${model}": ${await readError(response)}`);
+  }
+
+  return true;
+}
+
+function getOpenAICompatibleUrl(baseUrl: string, path: string) {
+  const normalizedBaseUrl = baseUrl.replace(/\/$/, "");
+  return normalizedBaseUrl.endsWith("/v1")
+    ? `${normalizedBaseUrl}/${path}`
+    : `${normalizedBaseUrl}/v1/${path}`;
 }
 
 async function* parseServerSentEvents(

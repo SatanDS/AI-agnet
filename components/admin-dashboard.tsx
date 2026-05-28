@@ -56,6 +56,8 @@ export function AdminDashboard({ username }: { username: string }) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [savingSettings, setSavingSettings] = useState(false);
+  const [testingModel, setTestingModel] = useState(false);
+  const [localModels, setLocalModels] = useState<string[]>([]);
 
   useEffect(() => {
     void loadAdminData();
@@ -239,6 +241,37 @@ export function AdminDashboard({ username }: { username: string }) {
       setError(err instanceof Error ? err.message : "Could not save model settings.");
     } finally {
       setSavingSettings(false);
+    }
+  }
+
+  async function testModelSettings() {
+    setTestingModel(true);
+    setStatus("");
+    setError("");
+
+    try {
+      const response = await fetch("/api/admin/settings/model/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(settings),
+      });
+
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(payload?.error ?? "Model test failed.");
+      }
+
+      setLocalModels(payload.models ?? []);
+      setStatus(
+        payload.models?.length
+          ? `Connection OK. ${payload.models.length} models found.`
+          : "Connection OK.",
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Model test failed.");
+    } finally {
+      setTestingModel(false);
     }
   }
 
@@ -456,14 +489,30 @@ export function AdminDashboard({ username }: { username: string }) {
                       <span className="mb-1 block text-sm font-medium text-slate-700">
                         Model
                       </span>
-                      <input
-                        className="h-10 w-full rounded-md border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
-                        placeholder="gpt-5.5"
-                        value={settings.LOCAL_OPENAI_MODEL}
-                        onChange={(event) =>
-                          updateSettings({ LOCAL_OPENAI_MODEL: event.target.value })
-                        }
-                      />
+                      {localModels.length > 0 ? (
+                        <select
+                          className="h-10 w-full rounded-md border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
+                          value={settings.LOCAL_OPENAI_MODEL}
+                          onChange={(event) =>
+                            updateSettings({ LOCAL_OPENAI_MODEL: event.target.value })
+                          }
+                        >
+                          {localModels.map((model) => (
+                            <option key={model} value={model}>
+                              {model}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          className="h-10 w-full rounded-md border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
+                          placeholder="Use a model listed by your provider"
+                          value={settings.LOCAL_OPENAI_MODEL}
+                          onChange={(event) =>
+                            updateSettings({ LOCAL_OPENAI_MODEL: event.target.value })
+                          }
+                        />
+                      )}
                     </label>
 
                     <label className="block">
@@ -498,6 +547,19 @@ export function AdminDashboard({ username }: { username: string }) {
                   )}
                   Save settings
                 </button>
+                {!isOpenAIProvider ? (
+                  <button
+                    className="flex h-10 w-full items-center justify-center gap-2 rounded-md border border-line px-3 text-sm font-medium text-slate-700 hover:bg-slate-100"
+                    disabled={testingModel}
+                    onClick={testModelSettings}
+                    type="button"
+                  >
+                    {testingModel ? (
+                      <Loader2 className="animate-spin" size={17} aria-hidden="true" />
+                    ) : null}
+                    Test connection
+                  </button>
+                ) : null}
               </form>
             </section>
           </div>
