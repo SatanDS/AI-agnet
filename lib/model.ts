@@ -3,6 +3,10 @@ import { getModelSettings } from "@/lib/settings";
 export type ChatMessage = {
   role: "user" | "assistant" | "system";
   content: string;
+  images?: Array<{
+    dataUrl: string;
+    mimeType: string;
+  }>;
 };
 
 export type StreamChunk = {
@@ -63,7 +67,7 @@ async function* streamOpenAIResponses(
       model,
       input: messages.map((message) => ({
         role: message.role,
-        content: message.content,
+        content: responseContentForMessage(message),
       })),
       stream: true,
     }),
@@ -100,7 +104,7 @@ async function* streamOpenAICompatibleChat(
       model,
       messages: messages.map((message) => ({
         role: message.role,
-        content: message.content,
+        content: compatibleContentForMessage(message),
       })),
       stream: true,
     }),
@@ -219,6 +223,42 @@ async function* parseServerSentEvents(
       }
     }
   }
+}
+
+function responseContentForMessage(message: ChatMessage) {
+  if (!message.images?.length || message.role !== "user") {
+    return message.content;
+  }
+
+  return [
+    {
+      type: "input_text",
+      text: message.content,
+    },
+    ...message.images.map((image) => ({
+      type: "input_image",
+      image_url: image.dataUrl,
+    })),
+  ];
+}
+
+function compatibleContentForMessage(message: ChatMessage) {
+  if (!message.images?.length || message.role !== "user") {
+    return message.content;
+  }
+
+  return [
+    {
+      type: "text",
+      text: message.content,
+    },
+    ...message.images.map((image) => ({
+      type: "image_url",
+      image_url: {
+        url: image.dataUrl,
+      },
+    })),
+  ];
 }
 
 async function readError(response: Response) {

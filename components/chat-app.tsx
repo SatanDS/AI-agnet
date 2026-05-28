@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  ImagePlus,
   Compass,
   LogOut,
   MessageSquarePlus,
@@ -27,8 +28,18 @@ type Message = {
   id: string;
   role: "user" | "assistant" | "system";
   content: string;
+  attachments?: MessageAttachment[];
   createdAt?: string;
   pending?: boolean;
+};
+
+type MessageAttachment = {
+  id: string;
+  originalName: string;
+  mimeType: string;
+  sizeBytes: number;
+  expiresAt?: string;
+  previewUrl?: string;
 };
 
 type StreamPayload = {
@@ -49,6 +60,8 @@ export function ChatApp({
   const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [selectedImagePreview, setSelectedImagePreview] = useState("");
   const [loadingConversations, setLoadingConversations] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [sending, setSending] = useState(false);
@@ -60,6 +73,41 @@ export function ChatApp({
     () => conversations.find((conversation) => conversation.id === activeId),
     [activeId, conversations],
   );
+
+  useEffect(() => {
+    if (!selectedImage) {
+      return;
+    }
+
+    const url = URL.createObjectURL(selectedImage);
+    setSelectedImagePreview((current) => {
+      if (current.startsWith("blob:")) {
+        URL.revokeObjectURL(current);
+      }
+      return url;
+    });
+  }, [selectedImage]);
+
+  useEffect(() => {
+    return () => {
+      setSelectedImagePreview((current) => {
+        if (current.startsWith("blob:")) {
+          URL.revokeObjectURL(current);
+        }
+        return "";
+      });
+    };
+  }, []);
+
+  function clearSelectedImage() {
+    setSelectedImage(null);
+    setSelectedImagePreview((current) => {
+      if (current.startsWith("blob:")) {
+        URL.revokeObjectURL(current);
+      }
+      return "";
+    });
+  }
 
   const scrollToMessageEnd = useCallback((behavior: ScrollBehavior = "auto") => {
     const container = scrollContainerRef.current;
@@ -199,18 +247,33 @@ export function ChatApp({
     event.preventDefault();
 
     const content = input.trim();
-    if (!content || sending) {
+    if ((!content && !selectedImage) || sending) {
       return;
     }
 
     setInput("");
+    const imageForRequest = selectedImage;
+    const imagePreviewForMessage = selectedImagePreview;
+    setSelectedImage(null);
+    setSelectedImagePreview("");
     setSending(true);
     setError("");
 
     const localUserMessage: Message = {
       id: `local-user-${Date.now()}`,
       role: "user",
-      content,
+      content: content || (imageForRequest ? "请分析这张图片。" : ""),
+      attachments: imageForRequest
+        ? [
+            {
+              id: `local-image-${Date.now()}`,
+              originalName: imageForRequest.name || "image",
+              mimeType: imageForRequest.type,
+              sizeBytes: imageForRequest.size,
+              previewUrl: imagePreviewForMessage,
+            },
+          ]
+        : undefined,
       pending: true,
     };
     const localAssistantMessage: Message = {
@@ -223,13 +286,18 @@ export function ChatApp({
     setMessages((current) => [...current, localUserMessage, localAssistantMessage]);
 
     try {
+      const body = new FormData();
+      body.set("message", content);
+      if (activeId) {
+        body.set("conversationId", activeId);
+      }
+      if (imageForRequest) {
+        body.append("images", imageForRequest);
+      }
+
       const response = await fetch("/api/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...(activeId ? { conversationId: activeId } : {}),
-          message: content,
-        }),
+        body,
       });
 
       if (!response.ok || !response.body) {
@@ -497,8 +565,12 @@ export function ChatApp({
               <div className="composer-center mt-10">
                 <ChatComposer
                   input={input}
+                  selectedImage={selectedImage}
+                  selectedImagePreview={selectedImagePreview}
                   sending={sending}
                   onInput={setInput}
+                  onImage={setSelectedImage}
+                  onRemoveImage={clearSelectedImage}
                   onSubmit={handleSubmit}
                 />
               </div>
@@ -511,8 +583,12 @@ export function ChatApp({
             <div className="composer-dock pointer-events-auto mx-auto w-full max-w-3xl">
               <ChatComposer
                 input={input}
+                selectedImage={selectedImage}
+                selectedImagePreview={selectedImagePreview}
                 sending={sending}
                 onInput={setInput}
+                onImage={setSelectedImage}
+                onRemoveImage={clearSelectedImage}
                 onSubmit={handleSubmit}
               />
             </div>
@@ -525,18 +601,78 @@ export function ChatApp({
 
 function ChatComposer({
   input,
+  selectedImage,
+  selectedImagePreview,
   sending,
   onInput,
+  onImage,
+  onRemoveImage,
   onSubmit,
 }: {
   input: string;
+  selectedImage: File | null;
+  selectedImagePreview: string;
   sending: boolean;
   onInput: (value: string) => void;
+  onImage: (file: File | null) => void;
+  onRemoveImage: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
   return (
     <form onSubmit={onSubmit} className="mx-auto w-full max-w-[720px]">
-      <div className="ai-composer-shell ai-soft-border flex min-h-[58px] items-end gap-3 rounded-full border bg-zinc-900/95 px-5 py-2.5 shadow-2xl shadow-blue-950/20 backdrop-blur-xl transition duration-300 focus-within:scale-[1.01]">
+      {selectedImage ? (
+          <div className="mb-2 flex items-center gap-3 rounded-2xl border border-white/10 bg-zinc-900/90 p-2 shadow-lg shadow-black/20">
+          {selectedImagePreview ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              alt={selectedImage.name || "上传图片"}
+              className="h-14 w-14 rounded-xl object-cover"
+              src={selectedImagePreview}
+            />
+          ) : null}
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm text-zinc-200">
+              {selectedImage.name || "图片"}
+            </p>
+            <p className="mt-1 text-xs text-zinc-500">
+              7 天后自动清理
+            </p>
+          </div>
+          <button
+            className="rounded-full px-3 py-1.5 text-sm text-zinc-400 transition hover:bg-white/10 hover:text-white"
+            onClick={onRemoveImage}
+            type="button"
+          >
+            移除
+          </button>
+        </div>
+      ) : null}
+      <div className="ai-composer-shell ai-soft-border flex min-h-[58px] items-end gap-3 rounded-full border bg-zinc-900/95 px-4 py-2.5 shadow-2xl shadow-blue-950/20 backdrop-blur-xl transition duration-300 focus-within:scale-[1.01]">
+        <label
+          className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-zinc-400 transition hover:bg-white/10 hover:text-white"
+          title="上传图片"
+        >
+          <ImagePlus size={18} aria-hidden="true" />
+          <input
+            accept="image/png,image/jpeg,image/webp,image/gif"
+            className="sr-only"
+            disabled={sending}
+            onChange={(event) => {
+              const file = event.target.files?.[0] ?? null;
+              event.target.value = "";
+              if (!file) {
+                onRemoveImage();
+                return;
+              }
+              if (file.size > 8 * 1024 * 1024) {
+                window.alert("图片不能超过 8MB。");
+                return;
+              }
+              onImage(file);
+            }}
+            type="file"
+          />
+        </label>
         <textarea
           className="max-h-32 min-h-9 flex-1 resize-none bg-transparent py-1 text-base leading-7 text-zinc-100 outline-none placeholder:text-zinc-500"
           value={input}
@@ -555,7 +691,7 @@ function ChatComposer({
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-zinc-700 text-zinc-300 transition hover:bg-white hover:text-zinc-950 disabled:bg-zinc-700/70 disabled:text-zinc-500"
           type="submit"
           title="发送"
-          disabled={sending || !input.trim()}
+          disabled={sending || (!input.trim() && !selectedImage)}
         >
           <Send size={18} aria-hidden="true" />
         </button>
@@ -580,6 +716,19 @@ function MessageBubble({ message }: { message: Message }) {
             : "ai-soft-border border bg-white/8 text-zinc-100 shadow-black/10 backdrop-blur-xl",
         )}
       >
+        {message.attachments?.length ? (
+          <div className="mb-3 flex flex-wrap gap-2">
+            {message.attachments.map((attachment) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                alt={attachment.originalName}
+                className="max-h-64 rounded-xl border border-black/10 object-contain"
+                key={attachment.id}
+                src={attachment.previewUrl ?? `/api/attachments/${attachment.id}`}
+              />
+            ))}
+          </div>
+        ) : null}
         {message.content || (message.pending ? "正在思考..." : "")}
       </div>
     </article>

@@ -8,13 +8,20 @@ import {
 import { isUnauthorized, jsonError } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
 import { getChatPresetSettings } from "@/lib/settings";
+import {
+  PendingAttachment,
+  attachmentsForModel,
+  cleanupExpiredAttachments,
+  parseImageAttachments,
+  saveMessageAttachments,
+} from "@/lib/attachments";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const chatSchema = z.object({
   conversationId: z.string().nullish(),
-  message: z.string().trim().min(1).max(20000),
+  message: z.string().trim().max(20000),
 });
 
 export async function POST(request: Request) {
@@ -29,13 +36,45 @@ export async function POST(request: Request) {
     throw error;
   }
 
-  const parsed = chatSchema.safeParse(await request.json().catch(() => null));
+  await cleanupExpiredAttachments().catch(() => undefined);
+
+  let rawPayload: unknown;
+  let pendingAttachments: PendingAttachment[] = [];
+
+  if (request.headers.get("content-type")?.includes("multipart/form-data")) {
+    const formData = await request.formData().catch(() => null);
+    if (!formData) {
+      return jsonError("Invalid chat message.", 400);
+    }
+
+    try {
+      pendingAttachments = await parseImageAttachments(formData);
+    } catch (error) {
+      return jsonError(
+        error instanceof Error ? error.message : "Invalid image attachment.",
+        400,
+      );
+    }
+
+    rawPayload = {
+      conversationId: formData.get("conversationId"),
+      message: formData.get("message"),
+    };
+  } else {
+    rawPayload = await request.json().catch(() => null);
+  }
+
+  const parsed = chatSchema.safeParse(rawPayload);
   if (!parsed.success) {
     return jsonError("Invalid chat message.", 400);
   }
 
   const conversationId = parsed.data.conversationId ?? undefined;
-  const { message } = parsed.data;
+  const message =
+    parsed.data.message || (pendingAttachments.length ? "请分析这张图片。" : "");
+  if (!message.trim() && pendingAttachments.length === 0) {
+    return jsonError("Invalid chat message.", 400);
+  }
   let conversation = conversationId
     ? await prisma.conversation.findFirst({
         where: { id: conversationId, userId: user.id },
@@ -62,6 +101,10 @@ export async function POST(request: Request) {
       content: message,
     },
   });
+  const userAttachments = await saveMessageAttachments(
+    userMessage.id,
+    pendingAttachments,
+  );
 
   await prisma.behaviorLog.create({
     data: {
@@ -88,15 +131,28 @@ export async function POST(request: Request) {
     where: { conversationId: conversation.id },
     orderBy: { createdAt: "asc" },
     select: {
+      id: true,
       role: true,
       content: true,
     },
   });
   const preset = await getPresetForUser(user.id, user.role);
-  const modelHistory: ChatMessage[] = history.map((item) => ({
-    role: item.role as "user" | "assistant" | "system",
-    content: item.content,
-  }));
+  const imageAttachments = userAttachments.length
+    ? await attachmentsForModel(userMessage.id)
+    : [];
+  const modelHistory: ChatMessage[] = history.map((item) => {
+    const isCurrentUserMessage = item.id === userMessage.id;
+    return {
+      role: item.role as "user" | "assistant" | "system",
+      content: item.content,
+      images: isCurrentUserMessage
+        ? imageAttachments.map((attachment) => ({
+            dataUrl: attachment.dataUrl,
+            mimeType: attachment.mimeType,
+          }))
+        : undefined,
+    };
+  });
   if (preset) {
     modelHistory.unshift({
       role: "system",
@@ -118,6 +174,7 @@ export async function POST(request: Request) {
           meta: {
             conversationId: conversation!.id,
             userMessageId: userMessage.id,
+            userAttachmentCount: String(userAttachments.length),
           },
         }),
       );

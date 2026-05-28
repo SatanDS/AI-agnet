@@ -63,7 +63,16 @@ type ArchiveMessage = {
   id: string;
   role: "user" | "assistant" | "system";
   content: string;
+  attachments?: ArchiveAttachment[];
   createdAt: string;
+};
+
+type ArchiveAttachment = {
+  id: string;
+  originalName: string;
+  mimeType: string;
+  sizeBytes: number;
+  expiresAt?: string;
 };
 
 type ArchiveConversation = {
@@ -1192,6 +1201,19 @@ function ReadOnlyMessage({ message }: { message: ArchiveMessage }) {
             : "max-w-[82%] whitespace-pre-wrap rounded-2xl border border-white/10 bg-white/8 px-4 py-3 text-sm leading-6 text-zinc-100 shadow-lg shadow-black/10"
         }
       >
+        {message.attachments?.length ? (
+          <div className="mb-3 flex flex-wrap gap-2">
+            {message.attachments.map((attachment) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                alt={attachment.originalName}
+                className="max-h-64 rounded-xl border border-black/10 object-contain"
+                key={attachment.id}
+                src={`/api/attachments/${attachment.id}`}
+              />
+            ))}
+          </div>
+        ) : null}
         {message.content}
       </div>
     </article>

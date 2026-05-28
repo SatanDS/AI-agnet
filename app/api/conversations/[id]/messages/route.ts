@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { isUnauthorized, jsonError } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
+import { cleanupExpiredAttachments } from "@/lib/attachments";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -10,6 +11,7 @@ type RouteContext = {
 export async function GET(_request: Request, context: RouteContext) {
   try {
     const user = await requireUser();
+    await cleanupExpiredAttachments().catch(() => undefined);
     const { id } = await context.params;
     const conversation = await prisma.conversation.findFirst({
       where: {
@@ -26,6 +28,17 @@ export async function GET(_request: Request, context: RouteContext) {
             role: true,
             content: true,
             createdAt: true,
+            attachments: {
+              where: { expiresAt: { gt: new Date() } },
+              orderBy: { createdAt: "asc" },
+              select: {
+                id: true,
+                originalName: true,
+                mimeType: true,
+                sizeBytes: true,
+                expiresAt: true,
+              },
+            },
           },
         },
       },

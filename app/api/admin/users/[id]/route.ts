@@ -4,6 +4,7 @@ import { requireAdmin } from "@/lib/auth";
 import { isForbidden, isUnauthorized, jsonError } from "@/lib/http";
 import { hashPassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
+import { deleteAttachmentFilesForUser } from "@/lib/attachments";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -130,12 +131,16 @@ export async function DELETE(_request: Request, context: RouteContext) {
       }
     }
 
+    await deleteAttachmentFilesForUser(id);
     await prisma.$transaction([
       prisma.behaviorLog.updateMany({
         where: { userId: id },
         data: { userId: null },
       }),
       prisma.session.deleteMany({ where: { userId: id } }),
+      prisma.messageAttachment.deleteMany({
+        where: { message: { conversation: { userId: id } } },
+      }),
       prisma.message.deleteMany({
         where: { conversation: { userId: id } },
       }),
