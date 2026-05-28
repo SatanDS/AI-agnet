@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 const SESSION_COOKIE = "ai_chat_session";
 const SESSION_DAYS = 14;
 
+export type UserRole = "owner" | "admin" | "user";
+
 function getAuthSecret() {
   const secret = process.env.AUTH_SECRET;
   if (!secret || secret.length < 32) {
@@ -97,14 +99,25 @@ export async function getCurrentUser() {
       return null;
     }
 
+    const role = normalizeRole(session.user.role);
+
     return {
       id: session.user.id,
       username: session.user.username,
       isAdmin: session.user.isAdmin,
+      role,
     };
   } catch {
     return null;
   }
+}
+
+function normalizeRole(role: string): UserRole {
+  if (role === "owner" || role === "admin") {
+    return role;
+  }
+
+  return "user";
 }
 
 export async function requireUser() {
@@ -120,7 +133,17 @@ export async function requireUser() {
 export async function requireAdmin() {
   const user = await requireUser();
 
-  if (!user.isAdmin) {
+  if (user.role !== "owner" && user.role !== "admin") {
+    throw new Error("Forbidden");
+  }
+
+  return user;
+}
+
+export async function requireOwner() {
+  const user = await requireUser();
+
+  if (user.role !== "owner") {
     throw new Error("Forbidden");
   }
 

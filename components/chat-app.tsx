@@ -11,6 +11,7 @@ import {
   Trash2,
 } from "lucide-react";
 import clsx from "clsx";
+import type { UserRole } from "@/lib/auth";
 
 type Conversation = {
   id: string;
@@ -35,10 +36,10 @@ type StreamPayload = {
 
 export function ChatApp({
   username,
-  isAdmin,
+  role,
 }: {
   username: string;
-  isAdmin: boolean;
+  role: UserRole;
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -72,7 +73,7 @@ export function ChatApp({
       }
 
       if (!response.ok) {
-        throw new Error("Could not load conversations.");
+        throw new Error("无法加载对话列表。");
       }
 
       const payload = await response.json();
@@ -82,7 +83,7 @@ export function ChatApp({
         await openConversation(payload.conversations[0].id);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load conversations.");
+      setError(err instanceof Error ? err.message : "无法加载对话列表。");
     } finally {
       setLoadingConversations(false);
     }
@@ -100,13 +101,13 @@ export function ChatApp({
     try {
       const response = await fetch(`/api/conversations/${id}/messages`);
       if (!response.ok) {
-        throw new Error("Could not load messages.");
+        throw new Error("无法加载消息。");
       }
 
       const payload = await response.json();
       setMessages(payload.conversation.messages);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load messages.");
+      setError(err instanceof Error ? err.message : "无法加载消息。");
     } finally {
       setLoadingMessages(false);
     }
@@ -118,7 +119,7 @@ export function ChatApp({
     try {
       const response = await fetch("/api/conversations", { method: "POST" });
       if (!response.ok) {
-        throw new Error("Could not create conversation.");
+        throw new Error("无法创建对话。");
       }
 
       const payload = await response.json();
@@ -126,7 +127,7 @@ export function ChatApp({
       setActiveId(payload.conversation.id);
       setMessages([]);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not create conversation.");
+      setError(err instanceof Error ? err.message : "无法创建对话。");
     }
   }
 
@@ -139,7 +140,7 @@ export function ChatApp({
       });
 
       if (!response.ok) {
-        throw new Error("Could not delete conversation.");
+        throw new Error("无法删除对话。");
       }
 
       const next = conversations.filter((conversation) => conversation.id !== id);
@@ -154,7 +155,7 @@ export function ChatApp({
         }
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not delete conversation.");
+      setError(err instanceof Error ? err.message : "无法删除对话。");
     }
   }
 
@@ -202,7 +203,7 @@ export function ChatApp({
 
       if (!response.ok || !response.body) {
         const payload = await response.json().catch(() => null);
-        throw new Error(payload?.error ?? "Send failed.");
+        throw new Error(payload?.error ?? "发送失败。");
       }
 
       const conversationId = response.headers.get("X-Conversation-Id");
@@ -213,13 +214,13 @@ export function ChatApp({
       await readChatStream(response.body);
       await loadConversations(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Send failed.");
+      setError(err instanceof Error ? err.message : "发送失败。");
       setMessages((current) =>
         current.map((message) =>
           message.id === localAssistantMessage.id
             ? {
                 ...message,
-                content: "Request failed. Check server logs or model settings.",
+                content: "请求失败，请检查服务器日志或模型设置。",
                 pending: false,
               }
             : message,
@@ -290,13 +291,13 @@ export function ChatApp({
       >
         <div className="flex h-16 items-center justify-between border-b border-line px-4">
           <div>
-            <p className="text-sm font-semibold">AI Chat</p>
+            <p className="text-sm font-semibold">森岳 AI Agent</p>
             <p className="text-xs text-slate-500">{username}</p>
           </div>
           <button
             className="rounded-md p-2 text-slate-500 hover:bg-slate-100 hover:text-ink"
             onClick={() => setSidebarOpen(false)}
-            title="Collapse sidebar"
+            title="收起侧边栏"
             type="button"
           >
             <PanelLeftClose size={19} aria-hidden="true" />
@@ -310,15 +311,15 @@ export function ChatApp({
             type="button"
           >
             <MessageSquarePlus size={17} aria-hidden="true" />
-            New chat
+            新对话
           </button>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-2 py-3">
           {loadingConversations ? (
-            <p className="px-3 py-2 text-sm text-slate-500">Loading chats</p>
+            <p className="px-3 py-2 text-sm text-slate-500">正在加载对话</p>
           ) : conversations.length === 0 ? (
-            <p className="px-3 py-2 text-sm text-slate-500">No chats yet</p>
+            <p className="px-3 py-2 text-sm text-slate-500">暂无对话</p>
           ) : (
             conversations.map((conversation) => (
               <div key={conversation.id} className="group flex items-center gap-1">
@@ -335,7 +336,7 @@ export function ChatApp({
                 <button
                   className="rounded-md p-2 text-slate-400 opacity-0 hover:bg-red-50 hover:text-red-700 group-hover:opacity-100"
                   onClick={() => deleteConversation(conversation.id)}
-                  title="Delete chat"
+                  title="删除对话"
                   type="button"
                 >
                   <Trash2 size={16} aria-hidden="true" />
@@ -346,13 +347,13 @@ export function ChatApp({
         </div>
 
         <div className="border-t border-line p-3">
-          {isAdmin ? (
+          {role !== "user" ? (
             <a
               className="mb-2 flex h-10 w-full items-center justify-center gap-2 rounded-md border border-line text-sm font-medium text-slate-700 hover:bg-slate-100"
               href="/admin"
             >
               <Settings size={17} aria-hidden="true" />
-              Admin
+              管理后台
             </a>
           ) : null}
           <button
@@ -361,7 +362,7 @@ export function ChatApp({
             type="button"
           >
             <LogOut size={17} aria-hidden="true" />
-            Log out
+            退出登录
           </button>
         </div>
       </aside>
@@ -371,16 +372,16 @@ export function ChatApp({
           <button
             className="rounded-md p-2 text-slate-600 hover:bg-slate-100"
             onClick={() => setSidebarOpen(true)}
-            title="Open sidebar"
+            title="打开侧边栏"
             type="button"
           >
             <Menu size={20} aria-hidden="true" />
           </button>
           <div className="min-w-0">
             <h1 className="truncate text-base font-semibold">
-              {activeConversation?.title ?? "New chat"}
+              {activeConversation?.title ?? "新对话"}
             </h1>
-            <p className="text-xs text-slate-500">Streaming output enabled</p>
+            <p className="text-xs text-slate-500">支持流式输出</p>
           </div>
         </header>
 
@@ -393,13 +394,12 @@ export function ChatApp({
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-6">
           <div className="mx-auto flex max-w-3xl flex-col gap-5">
             {loadingMessages ? (
-              <p className="text-sm text-slate-500">Loading messages</p>
+              <p className="text-sm text-slate-500">正在加载消息</p>
             ) : messages.length === 0 ? (
               <div className="rounded-lg border border-line bg-white p-6 shadow-soft">
-                <h2 className="text-lg font-semibold">Start a conversation</h2>
+                <h2 className="text-lg font-semibold">开始一段对话</h2>
                 <p className="mt-2 text-sm leading-6 text-slate-600">
-                  Ask a question and the backend will use the provider configured in
-                  environment variables.
+                  输入问题后，后端会使用当前配置的模型进行回复。普通用户和管理员会应用对应的聊天预设。
                 </p>
               </div>
             ) : (
@@ -424,14 +424,14 @@ export function ChatApp({
                   event.currentTarget.form?.requestSubmit();
                 }
               }}
-              placeholder="Type a message"
+              placeholder="输入消息"
               rows={1}
               disabled={sending}
             />
             <button
               className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-brand text-white hover:bg-teal-800"
               type="submit"
-              title="Send"
+              title="发送"
               disabled={sending || !input.trim()}
             >
               <Send size={19} aria-hidden="true" />
@@ -454,7 +454,7 @@ function MessageBubble({ message }: { message: Message }) {
           isUser ? "bg-brand text-white" : "border border-line bg-white text-ink",
         )}
       >
-        {message.content || (message.pending ? "Thinking..." : "")}
+        {message.content || (message.pending ? "正在思考..." : "")}
       </div>
     </article>
   );

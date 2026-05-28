@@ -23,12 +23,12 @@ export function LoginForm() {
 
       if (!response.ok) {
         const payload = await response.json().catch(() => null);
-        throw new Error(payload?.error ?? "Login failed.");
+        throw new Error(payload?.error ?? "登录失败。");
       }
 
       window.location.href = "/";
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed.");
+      setError(err instanceof Error ? err.message : "登录失败。");
     } finally {
       setLoading(false);
     }
@@ -41,15 +41,15 @@ export function LoginForm() {
           <LockKeyhole size={22} aria-hidden="true" />
         </div>
         <div>
-          <h1 className="text-xl font-semibold text-ink">AI Chat</h1>
-          <p className="mt-1 text-sm text-slate-500">Sign in to continue</p>
+          <h1 className="text-xl font-semibold text-ink">森岳 AI Agent</h1>
+          <p className="mt-1 text-sm text-slate-500">登录后继续使用</p>
         </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <label className="block">
           <span className="mb-1 block text-sm font-medium text-slate-700">
-            Username
+            账号
           </span>
           <input
             className="h-11 w-full rounded-md border border-line px-3 text-ink outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
@@ -62,7 +62,7 @@ export function LoginForm() {
 
         <label className="block">
           <span className="mb-1 block text-sm font-medium text-slate-700">
-            Password
+            密码
           </span>
           <input
             className="h-11 w-full rounded-md border border-line px-3 text-ink outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
@@ -86,7 +86,7 @@ export function LoginForm() {
           disabled={loading}
         >
           <LogIn size={18} aria-hidden="true" />
-          {loading ? "Signing in" : "Sign in"}
+          {loading ? "正在登录" : "登录"}
         </button>
       </form>
     </section>

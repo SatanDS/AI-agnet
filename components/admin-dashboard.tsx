@@ -1,21 +1,25 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
+  ClipboardList,
   KeyRound,
   Loader2,
   Save,
   Shield,
+  SlidersHorizontal,
   Trash2,
   UserPlus,
 } from "lucide-react";
+import type { UserRole } from "@/lib/auth";
 
 type AdminUser = {
   id: string;
   username: string;
-  isAdmin: boolean;
+  role: UserRole;
+  isAdmin?: boolean;
   createdAt: string;
   _count?: { conversations: number };
 };
@@ -36,6 +40,20 @@ type ModelSettings = {
   LOCAL_OPENAI_MODEL: string;
 };
 
+type PresetSettings = {
+  USER_CHAT_PRESET: string;
+  ADMIN_CHAT_PRESET: string;
+};
+
+type BehaviorLog = {
+  id: string;
+  username: string;
+  role: UserRole;
+  action: string;
+  content: string;
+  createdAt: string;
+};
+
 const emptySettings: ModelSettings = {
   MODEL_PROVIDER: "openai",
   OPENAI_API_KEY: "",
@@ -45,55 +63,103 @@ const emptySettings: ModelSettings = {
   LOCAL_OPENAI_MODEL: "local-model",
 };
 
-export function AdminDashboard({ username }: { username: string }) {
+const emptyPresets: PresetSettings = {
+  USER_CHAT_PRESET: "",
+  ADMIN_CHAT_PRESET: "",
+};
+
+const roleOptions: Array<{ value: UserRole; label: string }> = [
+  { value: "user", label: "普通用户" },
+  { value: "admin", label: "管理员" },
+  { value: "owner", label: "所有者" },
+];
+
+export function AdminDashboard({
+  username,
+  role,
+}: {
+  username: string;
+  role: UserRole;
+}) {
+  const isOwner = role === "owner";
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [settings, setSettings] = useState<ModelSettings>(emptySettings);
   const [modelOptions, setModelOptions] = useState<ModelOption[]>([]);
+  const [presets, setPresets] = useState<PresetSettings>(emptyPresets);
+  const [logs, setLogs] = useState<BehaviorLog[]>([]);
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
-  const [newIsAdmin, setNewIsAdmin] = useState(false);
+  const [newRole, setNewRole] = useState<UserRole>("user");
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [savingSettings, setSavingSettings] = useState(false);
+  const [savingPresets, setSavingPresets] = useState(false);
   const [testingModel, setTestingModel] = useState(false);
   const [localModels, setLocalModels] = useState<string[]>([]);
 
-  useEffect(() => {
-    void loadAdminData();
-  }, []);
-
-  async function loadAdminData() {
+  const loadAdminData = useCallback(async () => {
     setLoading(true);
     setError("");
 
     try {
-      const [usersResponse, settingsResponse] = await Promise.all([
-        fetch("/api/admin/users"),
-        fetch("/api/admin/settings/model"),
-      ]);
+      const requests = [fetch("/api/admin/users")];
 
-      if (usersResponse.status === 401 || settingsResponse.status === 401) {
+      if (isOwner) {
+        requests.push(
+          fetch("/api/admin/settings/model"),
+          fetch("/api/admin/settings/presets"),
+          fetch("/api/admin/logs"),
+        );
+      }
+
+      const [usersResponse, settingsResponse, presetsResponse, logsResponse] =
+        await Promise.all(requests);
+
+      if (usersResponse.status === 401 || settingsResponse?.status === 401) {
         window.location.href = "/login";
         return;
       }
 
-      if (!usersResponse.ok || !settingsResponse.ok) {
-        throw new Error("Could not load admin data.");
+      if (!usersResponse.ok) {
+        throw new Error("无法加载用户列表。");
       }
 
       const usersPayload = await usersResponse.json();
-      const settingsPayload = await settingsResponse.json();
-
       setUsers(usersPayload.users);
-      setSettings(settingsPayload.settings);
-      setModelOptions(settingsPayload.modelOptions);
+
+      if (isOwner) {
+        if (!settingsResponse?.ok) {
+          throw new Error("无法加载模型设置。");
+        }
+
+        if (!presetsResponse?.ok) {
+          throw new Error("无法加载聊天预设。");
+        }
+
+        if (!logsResponse?.ok) {
+          throw new Error("无法加载行为日志。");
+        }
+
+        const settingsPayload = await settingsResponse.json();
+        const presetsPayload = await presetsResponse.json();
+        const logsPayload = await logsResponse.json();
+
+        setSettings(settingsPayload.settings);
+        setModelOptions(settingsPayload.modelOptions);
+        setPresets(presetsPayload.presets);
+        setLogs(logsPayload.logs);
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load admin data.");
+      setError(err instanceof Error ? err.message : "无法加载后台数据。");
     } finally {
       setLoading(false);
     }
-  }
+  }, [isOwner]);
+
+  useEffect(() => {
+    void loadAdminData();
+  }, [loadAdminData]);
 
   async function createUser(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -107,35 +173,35 @@ export function AdminDashboard({ username }: { username: string }) {
         body: JSON.stringify({
           username: newUsername,
           password: newPassword,
-          isAdmin: newIsAdmin,
+          role: isOwner ? newRole : "user",
         }),
       });
 
       if (!response.ok) {
         const payload = await response.json().catch(() => null);
-        throw new Error(payload?.error ?? "Could not create user.");
+        throw new Error(payload?.error ?? "无法创建用户。");
       }
 
       setNewUsername("");
       setNewPassword("");
-      setNewIsAdmin(false);
-      setStatus("User created.");
+      setNewRole("user");
+      setStatus("用户已创建。");
       await loadUsers();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not create user.");
+      setError(err instanceof Error ? err.message : "无法创建用户。");
     }
   }
 
   async function loadUsers() {
     const response = await fetch("/api/admin/users");
     if (!response.ok) {
-      throw new Error("Could not refresh users.");
+      throw new Error("无法刷新用户列表。");
     }
     const payload = await response.json();
     setUsers(payload.users);
   }
 
-  async function toggleAdmin(user: AdminUser) {
+  async function updateUserRole(user: AdminUser, nextRole: UserRole) {
     setStatus("");
     setError("");
 
@@ -143,23 +209,23 @@ export function AdminDashboard({ username }: { username: string }) {
       const response = await fetch(`/api/admin/users/${user.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isAdmin: !user.isAdmin }),
+        body: JSON.stringify({ role: nextRole }),
       });
 
       if (!response.ok) {
         const payload = await response.json().catch(() => null);
-        throw new Error(payload?.error ?? "Could not update user.");
+        throw new Error(payload?.error ?? "无法更新用户。");
       }
 
-      setStatus("User updated.");
+      setStatus("用户角色已更新。");
       await loadUsers();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not update user.");
+      setError(err instanceof Error ? err.message : "无法更新用户。");
     }
   }
 
   async function resetPassword(user: AdminUser) {
-    const password = window.prompt(`New password for ${user.username}`);
+    const password = window.prompt(`请输入 ${user.username} 的新密码，至少 8 位`);
     if (!password) {
       return;
     }
@@ -176,7 +242,7 @@ export function AdminDashboard({ username }: { username: string }) {
 
       if (!response.ok) {
         const payload = await response.json().catch(() => null);
-        throw new Error(payload?.error ?? "Could not reset password.");
+        throw new Error(payload?.error ?? "无法重置密码。");
       }
 
       const payload = await response.json();
@@ -185,14 +251,14 @@ export function AdminDashboard({ username }: { username: string }) {
         return;
       }
 
-      setStatus("Password reset.");
+      setStatus("密码已重置。");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not reset password.");
+      setError(err instanceof Error ? err.message : "无法重置密码。");
     }
   }
 
   async function deleteUser(user: AdminUser) {
-    if (!window.confirm(`Delete ${user.username}? This also deletes their chats.`)) {
+    if (!window.confirm(`确定删除 ${user.username} 吗？该用户的所有对话也会被删除。`)) {
       return;
     }
 
@@ -206,13 +272,13 @@ export function AdminDashboard({ username }: { username: string }) {
 
       if (!response.ok) {
         const payload = await response.json().catch(() => null);
-        throw new Error(payload?.error ?? "Could not delete user.");
+        throw new Error(payload?.error ?? "无法删除用户。");
       }
 
-      setStatus("User deleted.");
+      setStatus("用户已删除。");
       await loadUsers();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not delete user.");
+      setError(err instanceof Error ? err.message : "无法删除用户。");
     }
   }
 
@@ -231,16 +297,44 @@ export function AdminDashboard({ username }: { username: string }) {
 
       if (!response.ok) {
         const payload = await response.json().catch(() => null);
-        throw new Error(payload?.error ?? "Could not save model settings.");
+        throw new Error(payload?.error ?? "无法保存模型设置。");
       }
 
       const payload = await response.json();
       setSettings(payload.settings);
-      setStatus("Model settings saved.");
+      setStatus("模型设置已保存。");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not save model settings.");
+      setError(err instanceof Error ? err.message : "无法保存模型设置。");
     } finally {
       setSavingSettings(false);
+    }
+  }
+
+  async function savePresets(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSavingPresets(true);
+    setStatus("");
+    setError("");
+
+    try {
+      const response = await fetch("/api/admin/settings/presets", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(presets),
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.error ?? "无法保存聊天预设。");
+      }
+
+      const payload = await response.json();
+      setPresets(payload.presets);
+      setStatus("聊天预设已保存。");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "无法保存聊天预设。");
+    } finally {
+      setSavingPresets(false);
     }
   }
 
@@ -259,24 +353,43 @@ export function AdminDashboard({ username }: { username: string }) {
       const payload = await response.json().catch(() => null);
 
       if (!response.ok) {
-        throw new Error(payload?.error ?? "Model test failed.");
+        throw new Error(payload?.error ?? "模型连接测试失败。");
       }
 
       setLocalModels(payload.models ?? []);
       setStatus(
         payload.models?.length
-          ? `Connection OK. ${payload.models.length} models found.`
-          : "Connection OK.",
+          ? `连接可用，已发现 ${payload.models.length} 个模型。`
+          : "连接可用。",
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Model test failed.");
+      setError(err instanceof Error ? err.message : "模型连接测试失败。");
     } finally {
       setTestingModel(false);
     }
   }
 
+  async function refreshLogs() {
+    setError("");
+
+    try {
+      const response = await fetch("/api/admin/logs");
+      if (!response.ok) {
+        throw new Error("无法刷新行为日志。");
+      }
+      const payload = await response.json();
+      setLogs(payload.logs);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "无法刷新行为日志。");
+    }
+  }
+
   function updateSettings(partial: Partial<ModelSettings>) {
     setSettings((current) => ({ ...current, ...partial }));
+  }
+
+  function updatePresets(partial: Partial<PresetSettings>) {
+    setPresets((current) => ({ ...current, ...partial }));
   }
 
   const isOpenAIProvider = settings.MODEL_PROVIDER === "openai";
@@ -286,15 +399,17 @@ export function AdminDashboard({ username }: { username: string }) {
       <header className="border-b border-line bg-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
           <div>
-            <h1 className="text-xl font-semibold">Admin Console</h1>
-            <p className="mt-1 text-sm text-slate-500">Signed in as {username}</p>
+            <h1 className="text-xl font-semibold">管理后台</h1>
+            <p className="mt-1 text-sm text-slate-500">
+              当前账号：{username} · {roleLabel(role)}
+            </p>
           </div>
           <Link
             className="flex h-10 items-center gap-2 rounded-md border border-line px-3 text-sm font-medium hover:bg-slate-100"
             href="/"
           >
             <ArrowLeft size={17} aria-hidden="true" />
-            Back to chat
+            返回对话
           </Link>
         </div>
       </header>
@@ -314,257 +429,431 @@ export function AdminDashboard({ username }: { username: string }) {
         {loading ? (
           <div className="flex items-center gap-2 text-sm text-slate-500">
             <Loader2 className="animate-spin" size={18} aria-hidden="true" />
-            Loading admin data
+            正在加载后台数据
           </div>
         ) : (
-          <div className="grid gap-6 lg:grid-cols-[1fr_420px]">
+          <div className="space-y-6">
             <section className="rounded-lg border border-line bg-white p-5 shadow-soft">
               <div className="mb-5 flex items-center gap-2">
                 <Shield size={20} aria-hidden="true" />
-                <h2 className="text-base font-semibold">Users</h2>
+                <h2 className="text-base font-semibold">用户管理</h2>
               </div>
 
-              <form onSubmit={createUser} className="mb-5 grid gap-3 md:grid-cols-[1fr_1fr_auto_auto]">
+              <form
+                onSubmit={createUser}
+                className="mb-5 grid gap-3 md:grid-cols-[1fr_1fr_160px_auto]"
+              >
                 <input
                   className="h-10 rounded-md border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
-                  placeholder="Username"
+                  placeholder="账号"
                   value={newUsername}
                   onChange={(event) => setNewUsername(event.target.value)}
                   required
                 />
                 <input
                   className="h-10 rounded-md border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
-                  placeholder="Password"
+                  placeholder="密码，至少 8 位"
                   type="password"
                   value={newPassword}
                   onChange={(event) => setNewPassword(event.target.value)}
                   required
                 />
-                <label className="flex h-10 items-center gap-2 rounded-md border border-line px-3 text-sm">
-                  <input
-                    checked={newIsAdmin}
-                    onChange={(event) => setNewIsAdmin(event.target.checked)}
-                    type="checkbox"
-                  />
-                  Admin
-                </label>
+                <select
+                  className="h-10 rounded-md border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
+                  value={isOwner ? newRole : "user"}
+                  onChange={(event) => setNewRole(event.target.value as UserRole)}
+                  disabled={!isOwner}
+                >
+                  {(isOwner ? roleOptions : roleOptions.filter((item) => item.value === "user")).map(
+                    (option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ),
+                  )}
+                </select>
                 <button
                   className="flex h-10 items-center justify-center gap-2 rounded-md bg-brand px-3 text-sm font-medium text-white hover:bg-teal-800"
                   type="submit"
                 >
                   <UserPlus size={17} aria-hidden="true" />
-                  Add
+                  新增
                 </button>
               </form>
 
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[620px] border-collapse text-sm">
+                <table className="w-full min-w-[700px] border-collapse text-sm">
                   <thead>
                     <tr className="border-b border-line text-left text-slate-500">
-                      <th className="py-2 pr-3 font-medium">Username</th>
-                      <th className="py-2 pr-3 font-medium">Role</th>
-                      <th className="py-2 pr-3 font-medium">Chats</th>
-                      <th className="py-2 pr-3 font-medium">Actions</th>
+                      <th className="py-2 pr-3 font-medium">账号</th>
+                      <th className="py-2 pr-3 font-medium">身份</th>
+                      <th className="py-2 pr-3 font-medium">对话数</th>
+                      <th className="py-2 pr-3 font-medium">创建时间</th>
+                      <th className="py-2 pr-3 font-medium">操作</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {users.map((user) => (
-                      <tr key={user.id} className="border-b border-line last:border-0">
-                        <td className="py-3 pr-3 font-medium">{user.username}</td>
-                        <td className="py-3 pr-3">{user.isAdmin ? "Admin" : "User"}</td>
-                        <td className="py-3 pr-3">{user._count?.conversations ?? 0}</td>
-                        <td className="flex flex-wrap gap-2 py-3 pr-3">
-                          <button
-                            className="rounded-md border border-line px-2 py-1 hover:bg-slate-100"
-                            onClick={() => toggleAdmin(user)}
-                            type="button"
-                          >
-                            {user.isAdmin ? "Remove admin" : "Make admin"}
-                          </button>
-                          <button
-                            className="flex items-center gap-1 rounded-md border border-line px-2 py-1 hover:bg-slate-100"
-                            onClick={() => resetPassword(user)}
-                            type="button"
-                          >
-                            <KeyRound size={14} aria-hidden="true" />
-                            Password
-                          </button>
-                          <button
-                            className="flex items-center gap-1 rounded-md border border-red-200 px-2 py-1 text-red-700 hover:bg-red-50"
-                            onClick={() => deleteUser(user)}
-                            type="button"
-                          >
-                            <Trash2 size={14} aria-hidden="true" />
-                            Delete
-                          </button>
+                    {users.length === 0 ? (
+                      <tr>
+                        <td className="py-6 text-center text-slate-500" colSpan={5}>
+                          暂无可管理用户
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      users.map((user) => (
+                        <tr key={user.id} className="border-b border-line last:border-0">
+                          <td className="py-3 pr-3 font-medium">{user.username}</td>
+                          <td className="py-3 pr-3">
+                            {isOwner ? (
+                              <select
+                                className="h-9 rounded-md border border-line px-2 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
+                                value={user.role}
+                                onChange={(event) =>
+                                  updateUserRole(user, event.target.value as UserRole)
+                                }
+                                disabled={user.username === username}
+                              >
+                                {roleOptions.map((option) => (
+                                  <option key={option.value} value={option.value}>
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : (
+                              roleLabel(user.role)
+                            )}
+                          </td>
+                          <td className="py-3 pr-3">{user._count?.conversations ?? 0}</td>
+                          <td className="py-3 pr-3 text-slate-500">
+                            {formatDate(user.createdAt)}
+                          </td>
+                          <td className="flex flex-wrap gap-2 py-3 pr-3">
+                            <button
+                              className="flex items-center gap-1 rounded-md border border-line px-2 py-1 hover:bg-slate-100"
+                              onClick={() => resetPassword(user)}
+                              type="button"
+                            >
+                              <KeyRound size={14} aria-hidden="true" />
+                              改密码
+                            </button>
+                            <button
+                              className="flex items-center gap-1 rounded-md border border-red-200 px-2 py-1 text-red-700 hover:bg-red-50"
+                              onClick={() => deleteUser(user)}
+                              type="button"
+                            >
+                              <Trash2 size={14} aria-hidden="true" />
+                              删除
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
             </section>
 
-            <section className="rounded-lg border border-line bg-white p-5 shadow-soft">
-              <div className="mb-5 flex items-center gap-2">
-                <Save size={20} aria-hidden="true" />
-                <h2 className="text-base font-semibold">Model Settings</h2>
-              </div>
+            {isOwner ? (
+              <div className="grid gap-6 lg:grid-cols-[420px_1fr]">
+                <section className="rounded-lg border border-line bg-white p-5 shadow-soft">
+                  <div className="mb-5 flex items-center gap-2">
+                    <SlidersHorizontal size={20} aria-hidden="true" />
+                    <h2 className="text-base font-semibold">模型设置</h2>
+                  </div>
 
-              <form onSubmit={saveSettings} className="space-y-4">
-                <label className="block">
-                  <span className="mb-1 block text-sm font-medium text-slate-700">
-                    Provider
-                  </span>
-                  <select
-                    className="h-10 w-full rounded-md border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
-                    value={settings.MODEL_PROVIDER}
-                    onChange={(event) =>
-                      updateSettings({
-                        MODEL_PROVIDER: event.target.value as "openai" | "local_openai",
-                      })
-                    }
-                  >
-                    <option value="openai">OpenAI cloud</option>
-                    <option value="local_openai">Local OpenAI-compatible</option>
-                  </select>
-                </label>
-
-                {isOpenAIProvider ? (
-                  <>
+                  <form onSubmit={saveSettings} className="space-y-4">
                     <label className="block">
                       <span className="mb-1 block text-sm font-medium text-slate-700">
-                        OpenAI model
+                        模型来源
                       </span>
                       <select
                         className="h-10 w-full rounded-md border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
-                        value={settings.OPENAI_MODEL}
+                        value={settings.MODEL_PROVIDER}
                         onChange={(event) =>
-                          updateSettings({ OPENAI_MODEL: event.target.value })
+                          updateSettings({
+                            MODEL_PROVIDER: event.target.value as
+                              | "openai"
+                              | "local_openai",
+                          })
                         }
                       >
-                        {modelOptions.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
+                        <option value="openai">OpenAI 云端</option>
+                        <option value="local_openai">OpenAI 兼容接口</option>
                       </select>
                     </label>
 
-                    <label className="block">
-                      <span className="mb-1 block text-sm font-medium text-slate-700">
-                        OpenAI API key
-                      </span>
-                      <input
-                        className="h-10 w-full rounded-md border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
-                        placeholder={
-                          settings.OPENAI_API_KEY_MASKED
-                            ? `Current: ${settings.OPENAI_API_KEY_MASKED}`
-                            : "sk-..."
-                        }
-                        value={settings.OPENAI_API_KEY}
-                        onChange={(event) =>
-                          updateSettings({ OPENAI_API_KEY: event.target.value })
-                        }
-                      />
-                    </label>
-                  </>
-                ) : (
-                  <>
-                    <label className="block">
-                      <span className="mb-1 block text-sm font-medium text-slate-700">
-                        Base URL
-                      </span>
-                      <input
-                        className="h-10 w-full rounded-md border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
-                        placeholder="https://api.example.com/v1"
-                        value={settings.LOCAL_OPENAI_BASE_URL}
-                        onChange={(event) =>
-                          updateSettings({ LOCAL_OPENAI_BASE_URL: event.target.value })
-                        }
-                      />
-                    </label>
+                    {isOpenAIProvider ? (
+                      <>
+                        <label className="block">
+                          <span className="mb-1 block text-sm font-medium text-slate-700">
+                            OpenAI 模型
+                          </span>
+                          <select
+                            className="h-10 w-full rounded-md border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
+                            value={settings.OPENAI_MODEL}
+                            onChange={(event) =>
+                              updateSettings({ OPENAI_MODEL: event.target.value })
+                            }
+                          >
+                            {modelOptions.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
 
-                    <label className="block">
-                      <span className="mb-1 block text-sm font-medium text-slate-700">
-                        Model
-                      </span>
-                      {localModels.length > 0 ? (
-                        <select
-                          className="h-10 w-full rounded-md border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
-                          value={settings.LOCAL_OPENAI_MODEL}
-                          onChange={(event) =>
-                            updateSettings({ LOCAL_OPENAI_MODEL: event.target.value })
-                          }
-                        >
-                          {localModels.map((model) => (
-                            <option key={model} value={model}>
-                              {model}
-                            </option>
-                          ))}
-                        </select>
+                        <label className="block">
+                          <span className="mb-1 block text-sm font-medium text-slate-700">
+                            OpenAI API Key
+                          </span>
+                          <input
+                            className="h-10 w-full rounded-md border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
+                            placeholder={
+                              settings.OPENAI_API_KEY_MASKED
+                                ? `当前：${settings.OPENAI_API_KEY_MASKED}`
+                                : "sk-..."
+                            }
+                            value={settings.OPENAI_API_KEY}
+                            onChange={(event) =>
+                              updateSettings({ OPENAI_API_KEY: event.target.value })
+                            }
+                          />
+                        </label>
+                      </>
+                    ) : (
+                      <>
+                        <label className="block">
+                          <span className="mb-1 block text-sm font-medium text-slate-700">
+                            Base URL
+                          </span>
+                          <input
+                            className="h-10 w-full rounded-md border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
+                            placeholder="https://api.example.com/v1"
+                            value={settings.LOCAL_OPENAI_BASE_URL}
+                            onChange={(event) =>
+                              updateSettings({
+                                LOCAL_OPENAI_BASE_URL: event.target.value,
+                              })
+                            }
+                          />
+                        </label>
+
+                        <label className="block">
+                          <span className="mb-1 block text-sm font-medium text-slate-700">
+                            模型名称
+                          </span>
+                          {localModels.length > 0 ? (
+                            <select
+                              className="h-10 w-full rounded-md border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
+                              value={settings.LOCAL_OPENAI_MODEL}
+                              onChange={(event) =>
+                                updateSettings({
+                                  LOCAL_OPENAI_MODEL: event.target.value,
+                                })
+                              }
+                            >
+                              {localModels.map((model) => (
+                                <option key={model} value={model}>
+                                  {model}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <input
+                              className="h-10 w-full rounded-md border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
+                              placeholder="填写服务商提供的模型名"
+                              value={settings.LOCAL_OPENAI_MODEL}
+                              onChange={(event) =>
+                                updateSettings({
+                                  LOCAL_OPENAI_MODEL: event.target.value,
+                                })
+                              }
+                            />
+                          )}
+                        </label>
+
+                        <label className="block">
+                          <span className="mb-1 block text-sm font-medium text-slate-700">
+                            API Key
+                          </span>
+                          <input
+                            className="h-10 w-full rounded-md border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
+                            placeholder={
+                              settings.LOCAL_OPENAI_API_KEY_MASKED
+                                ? `当前：${settings.LOCAL_OPENAI_API_KEY_MASKED}`
+                                : "可留空或填写 sk-..."
+                            }
+                            value={settings.LOCAL_OPENAI_API_KEY}
+                            onChange={(event) =>
+                              updateSettings({
+                                LOCAL_OPENAI_API_KEY: event.target.value,
+                              })
+                            }
+                          />
+                        </label>
+                      </>
+                    )}
+
+                    <button
+                      className="flex h-10 w-full items-center justify-center gap-2 rounded-md bg-brand px-3 text-sm font-medium text-white hover:bg-teal-800"
+                      disabled={savingSettings}
+                      type="submit"
+                    >
+                      {savingSettings ? (
+                        <Loader2 className="animate-spin" size={17} aria-hidden="true" />
                       ) : (
-                        <input
-                          className="h-10 w-full rounded-md border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
-                          placeholder="Use a model listed by your provider"
-                          value={settings.LOCAL_OPENAI_MODEL}
-                          onChange={(event) =>
-                            updateSettings({ LOCAL_OPENAI_MODEL: event.target.value })
-                          }
-                        />
+                        <Save size={17} aria-hidden="true" />
                       )}
-                    </label>
+                      保存模型设置
+                    </button>
+                    {!isOpenAIProvider ? (
+                      <button
+                        className="flex h-10 w-full items-center justify-center gap-2 rounded-md border border-line px-3 text-sm font-medium text-slate-700 hover:bg-slate-100"
+                        disabled={testingModel}
+                        onClick={testModelSettings}
+                        type="button"
+                      >
+                        {testingModel ? (
+                          <Loader2
+                            className="animate-spin"
+                            size={17}
+                            aria-hidden="true"
+                          />
+                        ) : null}
+                        测试连接并读取模型
+                      </button>
+                    ) : null}
+                  </form>
+                </section>
 
+                <section className="rounded-lg border border-line bg-white p-5 shadow-soft">
+                  <div className="mb-5 flex items-center gap-2">
+                    <Save size={20} aria-hidden="true" />
+                    <h2 className="text-base font-semibold">聊天预设</h2>
+                  </div>
+
+                  <form onSubmit={savePresets} className="space-y-4">
                     <label className="block">
                       <span className="mb-1 block text-sm font-medium text-slate-700">
-                        API key
+                        普通用户预设
                       </span>
-                      <input
-                        className="h-10 w-full rounded-md border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
-                        placeholder={
-                          settings.LOCAL_OPENAI_API_KEY_MASKED
-                            ? `Current: ${settings.LOCAL_OPENAI_API_KEY_MASKED}`
-                            : "sk-..."
-                        }
-                        value={settings.LOCAL_OPENAI_API_KEY}
+                      <textarea
+                        className="min-h-36 w-full resize-y rounded-md border border-line px-3 py-2 text-sm leading-6 outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
+                        value={presets.USER_CHAT_PRESET}
                         onChange={(event) =>
-                          updateSettings({ LOCAL_OPENAI_API_KEY: event.target.value })
+                          updatePresets({ USER_CHAT_PRESET: event.target.value })
                         }
                       />
                     </label>
-                  </>
-                )}
+                    <label className="block">
+                      <span className="mb-1 block text-sm font-medium text-slate-700">
+                        管理员预设
+                      </span>
+                      <textarea
+                        className="min-h-36 w-full resize-y rounded-md border border-line px-3 py-2 text-sm leading-6 outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
+                        value={presets.ADMIN_CHAT_PRESET}
+                        onChange={(event) =>
+                          updatePresets({ ADMIN_CHAT_PRESET: event.target.value })
+                        }
+                      />
+                    </label>
+                    <button
+                      className="flex h-10 w-full items-center justify-center gap-2 rounded-md bg-brand px-3 text-sm font-medium text-white hover:bg-teal-800"
+                      disabled={savingPresets}
+                      type="submit"
+                    >
+                      {savingPresets ? (
+                        <Loader2 className="animate-spin" size={17} aria-hidden="true" />
+                      ) : (
+                        <Save size={17} aria-hidden="true" />
+                      )}
+                      保存聊天预设
+                    </button>
+                  </form>
+                </section>
+              </div>
+            ) : null}
 
-                <button
-                  className="flex h-10 w-full items-center justify-center gap-2 rounded-md bg-brand px-3 text-sm font-medium text-white hover:bg-teal-800"
-                  disabled={savingSettings}
-                  type="submit"
-                >
-                  {savingSettings ? (
-                    <Loader2 className="animate-spin" size={17} aria-hidden="true" />
-                  ) : (
-                    <Save size={17} aria-hidden="true" />
-                  )}
-                  Save settings
-                </button>
-                {!isOpenAIProvider ? (
+            {isOwner ? (
+              <section className="rounded-lg border border-line bg-white p-5 shadow-soft">
+                <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <ClipboardList size={20} aria-hidden="true" />
+                    <h2 className="text-base font-semibold">提问行为日志</h2>
+                  </div>
                   <button
-                    className="flex h-10 w-full items-center justify-center gap-2 rounded-md border border-line px-3 text-sm font-medium text-slate-700 hover:bg-slate-100"
-                    disabled={testingModel}
-                    onClick={testModelSettings}
+                    className="h-9 rounded-md border border-line px-3 text-sm font-medium hover:bg-slate-100"
+                    onClick={refreshLogs}
                     type="button"
                   >
-                    {testingModel ? (
-                      <Loader2 className="animate-spin" size={17} aria-hidden="true" />
-                    ) : null}
-                    Test connection
+                    刷新
                   </button>
-                ) : null}
-              </form>
-            </section>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[820px] border-collapse text-sm">
+                    <thead>
+                      <tr className="border-b border-line text-left text-slate-500">
+                        <th className="py-2 pr-3 font-medium">时间</th>
+                        <th className="py-2 pr-3 font-medium">用户</th>
+                        <th className="py-2 pr-3 font-medium">身份</th>
+                        <th className="py-2 pr-3 font-medium">内容</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {logs.length === 0 ? (
+                        <tr>
+                          <td className="py-6 text-center text-slate-500" colSpan={4}>
+                            暂无提问记录
+                          </td>
+                        </tr>
+                      ) : (
+                        logs.map((log) => (
+                          <tr key={log.id} className="border-b border-line last:border-0">
+                            <td className="whitespace-nowrap py-3 pr-3 text-slate-500">
+                              {formatDate(log.createdAt)}
+                            </td>
+                            <td className="py-3 pr-3 font-medium">{log.username}</td>
+                            <td className="py-3 pr-3">{roleLabel(log.role)}</td>
+                            <td className="max-w-[520px] py-3 pr-3">
+                              <span className="line-clamp-3 whitespace-pre-wrap">
+                                {log.content}
+                              </span>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            ) : null}
           </div>
         )}
       </div>
     </main>
   );
+}
+
+function roleLabel(role: UserRole) {
+  if (role === "owner") {
+    return "所有者";
+  }
+
+  if (role === "admin") {
+    return "管理员";
+  }
+
+  return "普通用户";
+}
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat("zh-CN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
 }

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireAdmin } from "@/lib/auth";
+import { requireOwner } from "@/lib/auth";
 import { isForbidden, isUnauthorized, jsonError } from "@/lib/http";
 import {
   getModelSettings,
@@ -20,7 +20,7 @@ const settingsSchema = z.object({
 
 export async function GET() {
   try {
-    await requireAdmin();
+    await requireOwner();
     const settings = await getModelSettings();
 
     return NextResponse.json({
@@ -46,7 +46,7 @@ export async function GET() {
 
 export async function PUT(request: Request) {
   try {
-    await requireAdmin();
+    await requireOwner();
     const parsed = settingsSchema.safeParse(await request.json().catch(() => null));
 
     if (!parsed.success) {

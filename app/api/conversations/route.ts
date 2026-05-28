@@ -32,7 +32,7 @@ export async function POST() {
     const conversation = await prisma.conversation.create({
       data: {
         userId: user.id,
-        title: "New chat",
+        title: "新对话",
       },
       select: {
         id: true,

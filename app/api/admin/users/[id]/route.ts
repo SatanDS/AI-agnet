@@ -11,7 +11,7 @@ type RouteContext = {
 
 const updateUserSchema = z.object({
   password: z.string().min(8).max(200).optional(),
-  isAdmin: z.boolean().optional(),
+  role: z.enum(["owner", "admin", "user"]).optional(),
 });
 
 export async function PATCH(request: Request, context: RouteContext) {
@@ -29,24 +29,33 @@ export async function PATCH(request: Request, context: RouteContext) {
       return jsonError("User not found.", 404);
     }
 
-    if (admin.id === id && parsed.data.isAdmin === false) {
-      return jsonError("You cannot remove admin access from your own account.", 400);
+    if (admin.role !== "owner" && target.role !== "user") {
+      return jsonError("Admins can only manage normal users.", 403);
     }
 
-    if (target.isAdmin && parsed.data.isAdmin === false) {
-      const adminCount = await prisma.user.count({ where: { isAdmin: true } });
-      if (adminCount <= 1) {
-        return jsonError("At least one admin account is required.", 400);
+    if (admin.role !== "owner" && parsed.data.role && parsed.data.role !== "user") {
+      return jsonError("Admins can only assign normal user role.", 403);
+    }
+
+    if (admin.id === id && parsed.data.role && parsed.data.role !== admin.role) {
+      return jsonError("You cannot change your own role.", 400);
+    }
+
+    if (target.role === "owner" && parsed.data.role && parsed.data.role !== "owner") {
+      const ownerCount = await prisma.user.count({ where: { role: "owner" } });
+      if (ownerCount <= 1) {
+        return jsonError("At least one owner account is required.", 400);
       }
     }
 
-    const updateData: { passwordHash?: string; isAdmin?: boolean } = {};
+    const updateData: { passwordHash?: string; isAdmin?: boolean; role?: string } = {};
     if (parsed.data.password) {
       updateData.passwordHash = await hashPassword(parsed.data.password);
       await prisma.session.deleteMany({ where: { userId: id } });
     }
-    if (typeof parsed.data.isAdmin === "boolean") {
-      updateData.isAdmin = parsed.data.isAdmin;
+    if (parsed.data.role) {
+      updateData.role = parsed.data.role;
+      updateData.isAdmin = parsed.data.role !== "user";
     }
 
     const user = await prisma.user.update({
@@ -56,6 +65,7 @@ export async function PATCH(request: Request, context: RouteContext) {
         id: true,
         username: true,
         isAdmin: true,
+        role: true,
         createdAt: true,
       },
     });
@@ -90,10 +100,14 @@ export async function DELETE(_request: Request, context: RouteContext) {
       return jsonError("User not found.", 404);
     }
 
-    if (target.isAdmin) {
-      const adminCount = await prisma.user.count({ where: { isAdmin: true } });
-      if (adminCount <= 1) {
-        return jsonError("At least one admin account is required.", 400);
+    if (admin.role !== "owner" && target.role !== "user") {
+      return jsonError("Admins can only delete normal users.", 403);
+    }
+
+    if (target.role === "owner") {
+      const ownerCount = await prisma.user.count({ where: { role: "owner" } });
+      if (ownerCount <= 1) {
+        return jsonError("At least one owner account is required.", 400);
       }
     }
 

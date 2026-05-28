@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireAdmin } from "@/lib/auth";
+import { requireOwner } from "@/lib/auth";
 import { isForbidden, isUnauthorized, jsonError } from "@/lib/http";
 import {
   listOpenAICompatibleModels,
@@ -18,7 +18,7 @@ const testSchema = z.object({
 
 export async function POST(request: Request) {
   try {
-    await requireAdmin();
+    await requireOwner();
     const parsed = testSchema.safeParse(await request.json().catch(() => null));
 
     if (!parsed.success) {

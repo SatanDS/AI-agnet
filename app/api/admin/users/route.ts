@@ -8,18 +8,20 @@ import { prisma } from "@/lib/prisma";
 const createUserSchema = z.object({
   username: z.string().trim().min(2).max(40),
   password: z.string().min(8).max(200),
-  isAdmin: z.boolean().default(false),
+  role: z.enum(["owner", "admin", "user"]).default("user"),
 });
 
 export async function GET() {
   try {
-    await requireAdmin();
+    const actor = await requireAdmin();
     const users = await prisma.user.findMany({
+      where: actor.role === "owner" ? undefined : { role: "user" },
       orderBy: { createdAt: "asc" },
       select: {
         id: true,
         username: true,
         isAdmin: true,
+        role: true,
         createdAt: true,
         _count: {
           select: { conversations: true },
@@ -41,11 +43,15 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    await requireAdmin();
+    const actor = await requireAdmin();
     const parsed = createUserSchema.safeParse(await request.json().catch(() => null));
 
     if (!parsed.success) {
       return jsonError("Invalid user data.", 400);
+    }
+
+    if (actor.role !== "owner" && parsed.data.role !== "user") {
+      return jsonError("Admins can only create normal users.", 403);
     }
 
     const passwordHash = await hashPassword(parsed.data.password);
@@ -53,12 +59,14 @@ export async function POST(request: Request) {
       data: {
         username: parsed.data.username,
         passwordHash,
-        isAdmin: parsed.data.isAdmin,
+        isAdmin: parsed.data.role !== "user",
+        role: parsed.data.role,
       },
       select: {
         id: true,
         username: true,
         isAdmin: true,
+        role: true,
         createdAt: true,
       },
     });

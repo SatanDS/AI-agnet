@@ -1,8 +1,13 @@
 import { z } from "zod";
-import { requireUser } from "@/lib/auth";
-import { encodeStreamChunk, streamModelResponse } from "@/lib/model";
+import { requireUser, UserRole } from "@/lib/auth";
+import {
+  ChatMessage,
+  encodeStreamChunk,
+  streamModelResponse,
+} from "@/lib/model";
 import { isUnauthorized, jsonError } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
+import { getChatPresetSettings } from "@/lib/settings";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -58,10 +63,23 @@ export async function POST(request: Request) {
     },
   });
 
+  await prisma.behaviorLog.create({
+    data: {
+      userId: user.id,
+      username: user.username,
+      role: user.role,
+      action: "chat_question",
+      content: message,
+    },
+  });
+
   await prisma.conversation.update({
     where: { id: conversation.id },
     data: {
-      title: conversation.title === "New chat" ? titleFromMessage(message) : conversation.title,
+      title:
+        conversation.title === "New chat" || conversation.title === "新对话"
+          ? titleFromMessage(message)
+          : conversation.title,
       updatedAt: new Date(),
     },
   });
@@ -74,10 +92,17 @@ export async function POST(request: Request) {
       content: true,
     },
   });
-  const modelHistory = history.map((item) => ({
+  const preset = await getPresetForRole(user.role);
+  const modelHistory: ChatMessage[] = history.map((item) => ({
     role: item.role as "user" | "assistant" | "system",
     content: item.content,
   }));
+  if (preset) {
+    modelHistory.unshift({
+      role: "system",
+      content: preset,
+    });
+  }
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -126,8 +151,7 @@ export async function POST(request: Request) {
         controller.enqueue(encodeStreamChunk({ done: true }));
         controller.close();
       } catch (error) {
-        const message =
-          error instanceof Error ? error.message : "The model request failed.";
+        const message = error instanceof Error ? error.message : "模型请求失败。";
         controller.enqueue(encodeStreamChunk({ text: `\n\n[Error] ${message}` }));
         controller.enqueue(encodeStreamChunk({ done: true }));
         controller.close();
@@ -147,5 +171,14 @@ export async function POST(request: Request) {
 
 function titleFromMessage(message: string) {
   const compact = message.replace(/\s+/g, " ").trim();
-  return compact.length > 24 ? `${compact.slice(0, 24)}...` : compact || "New chat";
+  return compact.length > 24 ? `${compact.slice(0, 24)}...` : compact || "新对话";
+}
+
+async function getPresetForRole(role: UserRole) {
+  if (role === "owner") {
+    return "";
+  }
+
+  const presets = await getChatPresetSettings();
+  return role === "admin" ? presets.ADMIN_CHAT_PRESET : presets.USER_CHAT_PRESET;
 }

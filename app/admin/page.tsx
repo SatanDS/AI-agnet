@@ -9,9 +9,9 @@ export default async function AdminPage() {
     redirect("/login");
   }
 
-  if (!user.isAdmin) {
+  if (user.role === "user") {
     redirect("/");
   }
 
-  return <AdminDashboard username={user.username} />;
+  return <AdminDashboard username={user.username} role={user.role} />;
 }
