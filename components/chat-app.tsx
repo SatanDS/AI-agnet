@@ -195,7 +195,7 @@ export function ChatApp({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          conversationId: activeId,
+          ...(activeId ? { conversationId: activeId } : {}),
           message: content,
         }),
       });

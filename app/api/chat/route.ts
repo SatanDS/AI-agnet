@@ -8,7 +8,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const chatSchema = z.object({
-  conversationId: z.string().optional(),
+  conversationId: z.string().nullish(),
   message: z.string().trim().min(1).max(20000),
 });
 
@@ -29,7 +29,8 @@ export async function POST(request: Request) {
     return jsonError("Invalid chat message.", 400);
   }
 
-  const { conversationId, message } = parsed.data;
+  const conversationId = parsed.data.conversationId ?? undefined;
+  const { message } = parsed.data;
   let conversation = conversationId
     ? await prisma.conversation.findFirst({
         where: { id: conversationId, userId: user.id },
