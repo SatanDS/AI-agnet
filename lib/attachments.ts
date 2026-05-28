@@ -17,6 +17,7 @@ export type StoredAttachmentForModel = {
 };
 
 const MAX_IMAGE_SIZE_BYTES = 8 * 1024 * 1024;
+const MAX_IMAGES_PER_MESSAGE = 3;
 const ATTACHMENT_TTL_DAYS = 7;
 const ALLOWED_IMAGE_TYPES = new Set([
   "image/png",
@@ -55,8 +56,8 @@ export async function parseImageAttachments(formData: FormData) {
     .getAll("images")
     .filter((item): item is File => item instanceof File && item.size > 0);
 
-  if (files.length > 1) {
-    throw new Error("一次最多上传 1 张图片。");
+  if (files.length > MAX_IMAGES_PER_MESSAGE) {
+    throw new Error("一次最多上传 3 张图片。");
   }
 
   const attachments: PendingAttachment[] = [];
