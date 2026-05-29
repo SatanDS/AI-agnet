@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth";
 import { isForbidden, isUnauthorized, jsonError } from "@/lib/http";
@@ -66,6 +67,15 @@ export async function POST(request: Request) {
       return jsonError("创建失败：管理员只能创建普通用户，不能创建管理员或所有者账号。", 403);
     }
 
+    const existingUser = await prisma.user.findUnique({
+      where: { username: parsed.data.username },
+      select: { id: true },
+    });
+
+    if (existingUser) {
+      return jsonError("创建失败：该账号已存在，请换一个账号名。", 409);
+    }
+
     const passwordHash = await hashPassword(parsed.data.password);
     const user = await prisma.user.create({
       data: {
@@ -99,7 +109,10 @@ export async function POST(request: Request) {
     if (isForbidden(error)) {
       return jsonError("Forbidden", 403);
     }
-    if (error instanceof Error && error.message.includes("Unique constraint")) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
       return jsonError("创建失败：该账号已存在，请换一个账号名。", 409);
     }
     throw error;
