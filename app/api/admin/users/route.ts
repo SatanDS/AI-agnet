@@ -13,6 +13,14 @@ const createUserSchema = z.object({
   canDeleteConversations: z.boolean().optional(),
 });
 
+const createUserErrorMessages: Record<string, string> = {
+  username: "账号需要填写 2-40 个字符。",
+  password: "密码需要至少 8 位，最多 200 位。",
+  role: "请选择有效身份：所有者、管理员或普通用户。",
+  chatPreset: "聊天预设不能超过 8000 个字符。",
+  canDeleteConversations: "删除对话权限必须是开启或关闭。",
+};
+
 export async function GET() {
   try {
     const actor = await requireAdmin();
@@ -51,11 +59,11 @@ export async function POST(request: Request) {
     const parsed = createUserSchema.safeParse(await request.json().catch(() => null));
 
     if (!parsed.success) {
-      return jsonError("Invalid user data.", 400);
+      return jsonError(formatCreateUserError(parsed.error), 400);
     }
 
     if (actor.role !== "owner" && parsed.data.role !== "user") {
-      return jsonError("Admins can only create normal users.", 403);
+      return jsonError("创建失败：管理员只能创建普通用户，不能创建管理员或所有者账号。", 403);
     }
 
     const passwordHash = await hashPassword(parsed.data.password);
@@ -92,8 +100,18 @@ export async function POST(request: Request) {
       return jsonError("Forbidden", 403);
     }
     if (error instanceof Error && error.message.includes("Unique constraint")) {
-      return jsonError("Username already exists.", 409);
+      return jsonError("创建失败：该账号已存在，请换一个账号名。", 409);
     }
     throw error;
   }
+}
+
+function formatCreateUserError(error: z.ZodError) {
+  const reasons = error.issues.map((issue) => {
+    const field = String(issue.path[0] ?? "");
+    return createUserErrorMessages[field] ?? issue.message;
+  });
+  const uniqueReasons = Array.from(new Set(reasons));
+
+  return `创建失败：${uniqueReasons.join(" ")}`;
 }
