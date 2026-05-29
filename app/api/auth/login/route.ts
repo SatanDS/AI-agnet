@@ -14,7 +14,7 @@ export async function POST(request: Request) {
   const parsed = loginSchema.safeParse(await request.json().catch(() => null));
 
   if (!parsed.success) {
-    return jsonError("账号或密码不正确。", 400);
+    return jsonError("请输入账号和密码。", 400);
   }
 
   const user = await prisma.user.findUnique({
@@ -22,12 +22,12 @@ export async function POST(request: Request) {
   });
 
   if (!user) {
-    return jsonError("账号或密码不正确。", 401);
+    return jsonError("请联系管理员注册账号。", 401);
   }
 
   const valid = await verifyPassword(parsed.data.password, user.passwordHash);
   if (!valid) {
-    return jsonError("账号或密码不正确。", 401);
+    return jsonError("密码错误。", 401);
   }
 
   await createSession(user.id);

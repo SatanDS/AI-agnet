@@ -232,6 +232,19 @@ export function AdminDashboard({
     void loadAdminData();
   }, [loadAdminData]);
 
+  useEffect(() => {
+    if (!status && !error) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setStatus("");
+      setError("");
+    }, 5000);
+
+    return () => window.clearTimeout(timer);
+  }, [status, error]);
+
   async function createUser(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setStatus("");
@@ -656,17 +669,6 @@ export function AdminDashboard({
       </header>
 
       <div className="mx-auto max-w-6xl px-4 py-6">
-        {error ? (
-          <div className="mb-4 rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-            {error}
-          </div>
-        ) : null}
-        {status ? (
-          <div className="mb-4 rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
-            {status}
-          </div>
-        ) : null}
-
         {loading ? (
           <div className="flex items-center gap-2 text-sm text-zinc-500">
             <Loader2 className="animate-spin" size={18} aria-hidden="true" />
@@ -1230,7 +1232,35 @@ export function AdminDashboard({
           onSubmit={saveUserPreset}
         />
       ) : null}
+      <AdminToast message={error || status} tone={error ? "error" : "success"} />
     </main>
+  );
+}
+
+function AdminToast({
+  message,
+  tone,
+}: {
+  message: string;
+  tone: "error" | "success";
+}) {
+  if (!message) {
+    return null;
+  }
+
+  return (
+    <div className="fixed bottom-6 right-6 z-[60] max-w-[min(420px,calc(100vw-2rem))] animate-in fade-in slide-in-from-bottom-2 duration-200">
+      <div
+        className={clsx(
+          "w-fit min-w-56 max-w-full rounded-2xl border px-4 py-3 text-sm font-medium shadow-2xl shadow-black/30 backdrop-blur-xl",
+          tone === "error"
+            ? "border-red-400/25 bg-red-500/15 text-red-100"
+            : "border-emerald-400/25 bg-emerald-500/15 text-emerald-100",
+        )}
+      >
+        {message}
+      </div>
+    </div>
   );
 }
 
