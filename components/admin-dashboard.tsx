@@ -1296,15 +1296,23 @@ function ArchiveDetailModal({
   detail: ArchiveDetail;
   onClose: () => void;
 }) {
-  const latestConversation = detail.conversations[0] ?? null;
+  const [selectedConversationId, setSelectedConversationId] = useState(
+    detail.conversations[0]?.id ?? "",
+  );
+  const selectedConversation =
+    detail.conversations.find(
+      (conversation) => conversation.id === selectedConversationId,
+    ) ??
+    detail.conversations[0] ??
+    null;
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 px-4 py-8 backdrop-blur-md"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 px-3 py-6 backdrop-blur-md md:px-6"
       onClick={onClose}
     >
       <section
-        className="flex h-[78vh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-zinc-950/95 shadow-2xl shadow-black/50"
+        className="flex h-[84vh] w-full max-w-7xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-zinc-950/95 shadow-2xl shadow-black/50"
         onClick={(event) => event.stopPropagation()}
       >
         <header className="flex h-16 items-center justify-between border-b border-white/10 px-5">
@@ -1313,7 +1321,7 @@ function ArchiveDetailModal({
               {detail.user.username} 的档案详情
             </h3>
             <p className="mt-1 text-xs text-zinc-500">
-              {roleLabel(detail.user.role)} · 只读查看 · 默认显示最新对话
+              {roleLabel(detail.user.role)} · 只读查看 · 共 {detail.conversations.length} 个对话
             </p>
           </div>
           <button
@@ -1326,26 +1334,80 @@ function ArchiveDetailModal({
           </button>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-6">
-          {!latestConversation ? (
-            <div className="flex h-full items-center justify-center text-sm text-zinc-500">
-              该用户暂无可查看对话，可能已被清空。
-            </div>
-          ) : (
-            <div className="mx-auto flex max-w-3xl flex-col gap-5">
-              <div className="mb-2 text-center">
-                <p className="text-sm font-medium text-zinc-300">
-                  {latestConversation.title}
-                </p>
-                <p className="mt-1 text-xs text-zinc-600">
-                  更新于 {formatDate(latestConversation.updatedAt)}
-                </p>
+        <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[300px_minmax(0,1fr)]">
+          <aside className="min-h-0 border-b border-white/10 bg-black/20 md:border-b-0 md:border-r">
+            <div className="flex h-full flex-col">
+              <div className="border-b border-white/10 px-4 py-3">
+                <p className="text-sm font-semibold text-zinc-200">对话列表</p>
+                <p className="mt-1 text-xs text-zinc-500">按最近更新时间排序</p>
               </div>
-              {latestConversation.messages.map((message) => (
-                <ReadOnlyMessage key={message.id} message={message} />
-              ))}
+              <div className="min-h-0 flex-1 overflow-y-auto p-3">
+                {detail.conversations.length === 0 ? (
+                  <p className="px-2 py-4 text-sm text-zinc-500">暂无对话</p>
+                ) : (
+                  <div className="space-y-2">
+                    {detail.conversations.map((conversation, index) => (
+                      <button
+                        className={clsx(
+                          "w-full rounded-2xl border px-3 py-3 text-left transition",
+                          selectedConversation?.id === conversation.id
+                            ? "border-white/20 bg-white/10 text-white"
+                            : "border-transparent text-zinc-400 hover:border-white/10 hover:bg-white/5 hover:text-zinc-100",
+                        )}
+                        key={conversation.id}
+                        onClick={() => setSelectedConversationId(conversation.id)}
+                        type="button"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="truncate text-sm font-medium">
+                            {conversation.title || `对话 ${index + 1}`}
+                          </span>
+                          <span className="shrink-0 text-[11px] text-zinc-600">
+                            {conversation.messages.length} 条
+                          </span>
+                        </div>
+                        <p className="mt-1 text-xs text-zinc-600">
+                          {formatDate(conversation.updatedAt)}
+                        </p>
+                        <p className="mt-2 line-clamp-2 text-xs leading-5 text-zinc-500">
+                          {conversation.messages.find((message) => message.role === "user")
+                            ?.content || "暂无用户消息"}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-          )}
+          </aside>
+
+          <div className="min-h-0 overflow-y-auto px-5 py-6">
+            {!selectedConversation ? (
+              <div className="flex h-full items-center justify-center text-sm text-zinc-500">
+                该用户暂无可查看对话，可能已被清空。
+              </div>
+            ) : (
+              <div className="mx-auto flex max-w-4xl flex-col gap-5">
+                <div className="mb-2 text-center">
+                  <p className="text-sm font-medium text-zinc-300">
+                    {selectedConversation.title}
+                  </p>
+                  <p className="mt-1 text-xs text-zinc-600">
+                    更新于 {formatDate(selectedConversation.updatedAt)}
+                  </p>
+                </div>
+                {selectedConversation.messages.length === 0 ? (
+                  <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-8 text-center text-sm text-zinc-500">
+                    该对话暂无消息。
+                  </div>
+                ) : (
+                  selectedConversation.messages.map((message) => (
+                    <ReadOnlyMessage key={message.id} message={message} />
+                  ))
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </section>
     </div>
