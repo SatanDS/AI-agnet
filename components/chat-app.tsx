@@ -59,6 +59,15 @@ type BrandSettings = {
   logoUpdatedAt: string;
 };
 
+const MAX_IMAGES_PER_MESSAGE = 3;
+const MAX_IMAGE_SIZE_BYTES = 8 * 1024 * 1024;
+const ALLOWED_IMAGE_TYPES = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/gif",
+]);
+
 export function ChatApp({
   username,
   role,
@@ -111,15 +120,31 @@ export function ChatApp({
       return;
     }
 
+    const imageFiles = files.filter((file) => ALLOWED_IMAGE_TYPES.has(file.type));
+    if (imageFiles.length === 0) {
+      window.alert("仅支持 PNG、JPG、WEBP 或 GIF 图片。");
+      return;
+    }
+
+    if (imageFiles.length < files.length) {
+      window.alert("已忽略不支持的文件类型，仅支持 PNG、JPG、WEBP 或 GIF 图片。");
+    }
+
+    const oversized = imageFiles.find((file) => file.size > MAX_IMAGE_SIZE_BYTES);
+    if (oversized) {
+      window.alert("图片不能超过 8MB。");
+      return;
+    }
+
     setSelectedImages((current) => {
-      const openSlots = 3 - current.length;
+      const openSlots = MAX_IMAGES_PER_MESSAGE - current.length;
       if (openSlots <= 0) {
         window.alert("一次最多上传 3 张图片。");
         return current;
       }
 
-      const accepted = files.slice(0, openSlots);
-      if (files.length > openSlots) {
+      const accepted = imageFiles.slice(0, openSlots);
+      if (imageFiles.length > openSlots) {
         window.alert("一次最多上传 3 张图片，多余图片已忽略。");
       }
 
@@ -768,11 +793,6 @@ function ChatComposer({
               if (files.length === 0) {
                 return;
               }
-              const oversized = files.find((file) => file.size > 8 * 1024 * 1024);
-              if (oversized) {
-                window.alert("图片不能超过 8MB。");
-                return;
-              }
               onImages(files);
             }}
             type="file"
@@ -782,6 +802,17 @@ function ChatComposer({
           className="max-h-32 min-h-9 flex-1 resize-none bg-transparent py-1 text-base leading-7 text-zinc-100 outline-none placeholder:text-zinc-500"
           value={input}
           onChange={(event) => onInput(event.target.value)}
+          onPaste={(event) => {
+            const files = Array.from(event.clipboardData.files).filter((file) =>
+              file.type.startsWith("image/"),
+            );
+            if (files.length === 0) {
+              return;
+            }
+
+            event.preventDefault();
+            onImages(files);
+          }}
           onKeyDown={(event) => {
             if (event.key === "Enter" && !event.shiftKey) {
               event.preventDefault();
