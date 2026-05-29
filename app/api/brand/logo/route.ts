@@ -11,7 +11,7 @@ export async function GET() {
   return new NextResponse(logo.file, {
     headers: {
       "Content-Type": logo.mimeType,
-      "Cache-Control": "public, max-age=86400",
+      "Cache-Control": "no-store, max-age=0",
     },
   });
 }

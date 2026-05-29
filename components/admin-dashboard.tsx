@@ -18,6 +18,7 @@ import {
   X,
 } from "lucide-react";
 import clsx from "clsx";
+import { updateBrandFavicon } from "@/components/brand-favicon";
 import type { UserRole } from "@/lib/auth";
 
 type AdminUser = {
@@ -531,6 +532,7 @@ export function AdminDashboard({
 
       const payload = await response.json();
       setBrand(payload.brand ?? emptyBrand);
+      updateBrandFavicon(payload.brand?.logoUrl ?? null);
       setStatus("Logo 已更新。");
     } catch (err) {
       setError(err instanceof Error ? err.message : "无法上传 Logo。");
@@ -554,6 +556,7 @@ export function AdminDashboard({
 
       const payload = await response.json();
       setBrand(payload.brand ?? emptyBrand);
+      updateBrandFavicon(payload.brand?.logoUrl ?? null);
       setStatus("Logo 已移除。");
     } catch (err) {
       setError(err instanceof Error ? err.message : "无法移除 Logo。");
