@@ -145,10 +145,7 @@ export async function DELETE(_request: Request, context: RouteContext) {
 
     await deleteAttachmentFilesForUser(id);
     await prisma.$transaction([
-      prisma.behaviorLog.updateMany({
-        where: { userId: id },
-        data: { userId: null },
-      }),
+      prisma.behaviorLog.deleteMany({ where: { userId: id } }),
       prisma.session.deleteMany({ where: { userId: id } }),
       prisma.messageAttachment.deleteMany({
         where: { message: { conversation: { userId: id } } },

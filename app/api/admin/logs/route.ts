@@ -17,6 +17,10 @@ export async function GET() {
   try {
     await requireOwner();
     const logs = await prisma.behaviorLog.findMany({
+      where: {
+        userId: { not: null },
+        user: { isNot: null },
+      },
       orderBy: { createdAt: "desc" },
       take: 500,
       select: {
@@ -33,7 +37,11 @@ export async function GET() {
     const archiveMap = new Map<string, LogArchive>();
 
     for (const log of logs) {
-      const key = log.userId ?? `deleted:${log.username}`;
+      if (!log.userId) {
+        continue;
+      }
+
+      const key = log.userId;
       const existing = archiveMap.get(key);
 
       if (!existing) {
