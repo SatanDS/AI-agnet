@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import clsx from "clsx";
 import { updateBrandFavicon } from "@/components/brand-favicon";
+import { AppDialog } from "@/components/app-dialog";
 import type { UserRole } from "@/lib/auth";
 
 type AdminUser = {
@@ -100,6 +101,13 @@ type ArchiveDetail = {
   conversations: ArchiveConversation[];
 };
 
+type PasswordDialogState = {
+  user: AdminUser;
+  value: string;
+} | null;
+
+type DeleteDialogState = AdminUser | null;
+
 const emptySettings: ModelSettings = {
   MODEL_PROVIDER: "openai",
   OPENAI_API_KEY: "",
@@ -143,6 +151,9 @@ export function AdminDashboard({
   const [archiveDetail, setArchiveDetail] = useState<ArchiveDetail | null>(null);
   const [presetEditor, setPresetEditor] = useState<AdminUser | null>(null);
   const [presetDraft, setPresetDraft] = useState("");
+  const [passwordDialog, setPasswordDialog] =
+    useState<PasswordDialogState>(null);
+  const [deleteDialog, setDeleteDialog] = useState<DeleteDialogState>(null);
   const [loadingArchiveDetail, setLoadingArchiveDetail] = useState(false);
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -342,12 +353,7 @@ export function AdminDashboard({
     }
   }
 
-  async function resetPassword(user: AdminUser) {
-    const password = window.prompt(`请输入 ${user.username} 的新密码，至少 8 位`);
-    if (!password) {
-      return;
-    }
-
+  async function resetPassword(user: AdminUser, password: string) {
     setStatus("");
     setError("");
 
@@ -369,6 +375,7 @@ export function AdminDashboard({
         return;
       }
 
+      setPasswordDialog(null);
       setStatus("密码已重置。");
     } catch (err) {
       setError(err instanceof Error ? err.message : "无法重置密码。");
@@ -429,10 +436,6 @@ export function AdminDashboard({
   }
 
   async function deleteUser(user: AdminUser) {
-    if (!window.confirm(`确定删除 ${user.username} 吗？该用户的所有对话也会被删除。`)) {
-      return;
-    }
-
     setStatus("");
     setError("");
 
@@ -446,6 +449,7 @@ export function AdminDashboard({
         throw new Error(payload?.error ?? "无法删除用户。");
       }
 
+      setDeleteDialog(null);
       setStatus("用户已删除。");
       await loadUsers();
       if (isOwner) {
@@ -872,7 +876,7 @@ export function AdminDashboard({
                           <td className="flex flex-wrap gap-2 py-3 pr-3">
                             <button
                               className="flex items-center gap-1 rounded-xl border border-white/10 px-2 py-1 text-zinc-200 hover:bg-white/10"
-                              onClick={() => resetPassword(user)}
+                              onClick={() => setPasswordDialog({ user, value: "" })}
                               type="button"
                             >
                               <KeyRound size={14} aria-hidden="true" />
@@ -880,7 +884,7 @@ export function AdminDashboard({
                             </button>
                             <button
                               className="flex items-center gap-1 rounded-xl border border-red-400/20 px-2 py-1 text-red-200 hover:bg-red-500/10"
-                              onClick={() => deleteUser(user)}
+                              onClick={() => setDeleteDialog(user)}
                               type="button"
                             >
                               <Trash2 size={14} aria-hidden="true" />
@@ -1235,6 +1239,29 @@ export function AdminDashboard({
           onSubmit={saveUserPreset}
         />
       ) : null}
+      {passwordDialog ? (
+        <PasswordResetDialog
+          dialog={passwordDialog}
+          onChange={(value) =>
+            setPasswordDialog((current) =>
+              current ? { ...current, value } : current,
+            )
+          }
+          onClose={() => setPasswordDialog(null)}
+          onSubmit={() => {
+            void resetPassword(passwordDialog.user, passwordDialog.value);
+          }}
+        />
+      ) : null}
+      {deleteDialog ? (
+        <DeleteUserDialog
+          user={deleteDialog}
+          onClose={() => setDeleteDialog(null)}
+          onConfirm={() => {
+            void deleteUser(deleteDialog);
+          }}
+        />
+      ) : null}
       <AdminToast message={error || status} tone={error ? "error" : "success"} />
     </main>
   );
@@ -1488,6 +1515,98 @@ function UserPresetModal({
         </form>
       </section>
     </div>
+  );
+}
+
+function PasswordResetDialog({
+  dialog,
+  onChange,
+  onSubmit,
+  onClose,
+}: {
+  dialog: NonNullable<PasswordDialogState>;
+  onChange: (value: string) => void;
+  onSubmit: () => void;
+  onClose: () => void;
+}) {
+  const canSubmit = dialog.value.length >= 8;
+
+  return (
+    <AppDialog
+      title="重置密码"
+      description={`请输入 ${dialog.user.username} 的新密码，至少 8 位。`}
+      onClose={onClose}
+      footer={
+        <>
+          <button
+            className="h-10 rounded-xl border border-white/10 px-4 text-sm font-medium text-zinc-300 transition hover:bg-white/10 hover:text-white"
+            onClick={onClose}
+            type="button"
+          >
+            取消
+          </button>
+          <button
+            className="h-10 rounded-xl bg-white px-4 text-sm font-medium text-zinc-950 transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={!canSubmit}
+            onClick={onSubmit}
+            type="button"
+          >
+            确定重置
+          </button>
+        </>
+      }
+    >
+      <input
+        autoFocus
+        className="h-11 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-white/25 focus:bg-white/8"
+        placeholder="至少 8 位"
+        type="password"
+        value={dialog.value}
+        onChange={(event) => onChange(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" && canSubmit) {
+            onSubmit();
+          }
+        }}
+      />
+    </AppDialog>
+  );
+}
+
+function DeleteUserDialog({
+  user,
+  onConfirm,
+  onClose,
+}: {
+  user: AdminUser;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <AppDialog
+      title="删除用户"
+      description={`确定删除 ${user.username} 吗？该用户的所有对话、图片附件和行为日志都会被清空。`}
+      tone="danger"
+      onClose={onClose}
+      footer={
+        <>
+          <button
+            className="h-10 rounded-xl border border-white/10 px-4 text-sm font-medium text-zinc-300 transition hover:bg-white/10 hover:text-white"
+            onClick={onClose}
+            type="button"
+          >
+            取消
+          </button>
+          <button
+            className="h-10 rounded-xl border border-red-400/25 bg-red-500/15 px-4 text-sm font-medium text-red-100 transition hover:bg-red-500/25"
+            onClick={onConfirm}
+            type="button"
+          >
+            确定删除
+          </button>
+        </>
+      }
+    />
   );
 }
 

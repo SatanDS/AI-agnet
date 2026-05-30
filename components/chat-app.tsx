@@ -15,6 +15,7 @@ import {
   Trash2,
 } from "lucide-react";
 import clsx from "clsx";
+import { AppDialog } from "@/components/app-dialog";
 import type { UserRole } from "@/lib/auth";
 
 type Conversation = {
@@ -91,6 +92,7 @@ export function ChatApp({
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const shouldStickToBottomRef = useRef(true);
   const hasMessages = messages.length > 0;
@@ -122,30 +124,30 @@ export function ChatApp({
 
     const imageFiles = files.filter((file) => ALLOWED_IMAGE_TYPES.has(file.type));
     if (imageFiles.length === 0) {
-      window.alert("仅支持 PNG、JPG、WEBP 或 GIF 图片。");
+      setNotice("仅支持 PNG、JPG、WEBP 或 GIF 图片。");
       return;
     }
 
     if (imageFiles.length < files.length) {
-      window.alert("已忽略不支持的文件类型，仅支持 PNG、JPG、WEBP 或 GIF 图片。");
+      setNotice("已忽略不支持的文件类型，仅支持 PNG、JPG、WEBP 或 GIF 图片。");
     }
 
     const oversized = imageFiles.find((file) => file.size > MAX_IMAGE_SIZE_BYTES);
     if (oversized) {
-      window.alert("图片不能超过 8MB。");
+      setNotice("图片不能超过 8MB。");
       return;
     }
 
     setSelectedImages((current) => {
       const openSlots = MAX_IMAGES_PER_MESSAGE - current.length;
       if (openSlots <= 0) {
-        window.alert("一次最多上传 3 张图片。");
+        setNotice("一次最多上传 3 张图片。");
         return current;
       }
 
       const accepted = imageFiles.slice(0, openSlots);
       if (imageFiles.length > openSlots) {
-        window.alert("一次最多上传 3 张图片，多余图片已忽略。");
+        setNotice("一次最多上传 3 张图片，多余图片已忽略。");
       }
 
       return [
@@ -695,6 +697,22 @@ export function ChatApp({
           </div>
         ) : null}
       </section>
+      {notice ? (
+        <AppDialog
+          title="图片上传提示"
+          description={notice}
+          onClose={() => setNotice("")}
+          footer={
+            <button
+              className="h-10 rounded-xl bg-white px-4 text-sm font-medium text-zinc-950 transition hover:bg-zinc-200"
+              onClick={() => setNotice("")}
+              type="button"
+            >
+              知道了
+            </button>
+          }
+        />
+      ) : null}
     </main>
   );
 }
