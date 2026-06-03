@@ -2,12 +2,13 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ImagePlus,
   Compass,
+  ImagePlus,
   LogOut,
   MessageSquarePlus,
   PanelLeftClose,
   PanelLeftOpen,
+  PencilLine,
   Search,
   Send,
   Settings,
@@ -83,6 +84,11 @@ export function ChatApp({
   const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
+  const [conversationSearch, setConversationSearch] = useState("");
+  const [editingConversation, setEditingConversation] =
+    useState<Conversation | null>(null);
+  const [editingTitle, setEditingTitle] = useState("");
+  const [editingTitleError, setEditingTitleError] = useState("");
   const [brand, setBrand] = useState<BrandSettings>({
     logoUrl: null,
     logoUpdatedAt: "",
@@ -91,9 +97,11 @@ export function ChatApp({
   const [loadingConversations, setLoadingConversations] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [sending, setSending] = useState(false);
+  const [savingConversationTitle, setSavingConversationTitle] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const shouldStickToBottomRef = useRef(true);
   const hasMessages = messages.length > 0;
   const allowDeleteConversations = role === "owner" || canDeleteConversations;
@@ -102,6 +110,17 @@ export function ChatApp({
     () => conversations.find((conversation) => conversation.id === activeId),
     [activeId, conversations],
   );
+
+  const filteredConversations = useMemo(() => {
+    const query = conversationSearch.trim().toLowerCase();
+    if (!query) {
+      return conversations;
+    }
+
+    return conversations.filter((conversation) =>
+      conversation.title.toLowerCase().includes(query),
+    );
+  }, [conversationSearch, conversations]);
 
   const selectedImagesRef = useRef<SelectedImage[]>([]);
 
@@ -335,6 +354,79 @@ export function ChatApp({
     }
   }
 
+  function focusConversationSearch() {
+    setSidebarOpen(true);
+    window.setTimeout(() => {
+      searchInputRef.current?.focus();
+    }, 0);
+  }
+
+  function openConversationEditor(conversation: Conversation) {
+    setEditingConversation(conversation);
+    setEditingTitle(conversation.title);
+    setEditingTitleError("");
+    setError("");
+  }
+
+  function closeConversationEditor() {
+    if (savingConversationTitle) {
+      return;
+    }
+
+    setEditingConversation(null);
+    setEditingTitle("");
+    setEditingTitleError("");
+  }
+
+  async function saveConversationTitle() {
+    if (!editingConversation) {
+      return;
+    }
+
+    const title = editingTitle.trim();
+    if (!title) {
+      setEditingTitleError("对话名称不能为空。");
+      return;
+    }
+
+    setSavingConversationTitle(true);
+    setEditingTitleError("");
+    setError("");
+
+    try {
+      const response = await fetch(
+        `/api/conversations/${editingConversation.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title }),
+        },
+      );
+
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(payload?.error ?? "无法保存对话名称。");
+      }
+
+      const updatedConversation = payload.conversation as Conversation;
+      setConversations((current) =>
+        current.map((conversation) =>
+          conversation.id === updatedConversation.id
+            ? updatedConversation
+            : conversation,
+        ),
+      );
+      setEditingConversation(null);
+      setEditingTitle("");
+    } catch (err) {
+      setEditingTitleError(
+        err instanceof Error ? err.message : "无法保存对话名称。",
+      );
+    } finally {
+      setSavingConversationTitle(false);
+    }
+  }
+
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });
     window.location.href = "/login";
@@ -519,7 +611,7 @@ export function ChatApp({
             icon={<Search size={18} />}
             label="搜索对话"
             expanded={sidebarOpen}
-            onClick={() => setSidebarOpen(true)}
+            onClick={focusConversationSearch}
           />
           <SidebarAction
             icon={<Compass size={18} />}
@@ -530,13 +622,32 @@ export function ChatApp({
 
           {sidebarOpen ? (
             <div className="mt-5 min-h-0 flex-1 overflow-y-auto pr-1">
+              <div className="px-1 pb-3">
+                <label className="relative block">
+                  <Search
+                    className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500"
+                    size={15}
+                    aria-hidden="true"
+                  />
+                  <input
+                    ref={searchInputRef}
+                    className="h-10 w-full rounded-full border border-white/8 bg-white/5 pl-9 pr-3 text-sm text-zinc-100 outline-none transition placeholder:text-zinc-600 focus:border-sky-400/35 focus:bg-white/8"
+                    value={conversationSearch}
+                    onChange={(event) => setConversationSearch(event.target.value)}
+                    placeholder="搜索客户或对话名"
+                    type="search"
+                  />
+                </label>
+              </div>
               <p className="px-2 pb-2 text-xs text-zinc-500">对话</p>
               {loadingConversations ? (
                 <p className="px-2 py-2 text-sm text-zinc-500">正在加载</p>
               ) : conversations.length === 0 ? (
                 <p className="px-2 py-2 text-sm text-zinc-500">暂无对话</p>
+              ) : filteredConversations.length === 0 ? (
+                <p className="px-2 py-2 text-sm text-zinc-500">没有匹配的对话</p>
               ) : (
-                conversations.map((conversation) => (
+                filteredConversations.map((conversation) => (
                   <div key={conversation.id} className="group flex items-center gap-1">
                     <button
                       className={clsx(
@@ -547,6 +658,14 @@ export function ChatApp({
                       type="button"
                     >
                       <span className="block truncate">{conversation.title}</span>
+                    </button>
+                    <button
+                      className="rounded-full p-2 text-zinc-600 opacity-0 transition hover:bg-sky-500/10 hover:text-sky-300 group-hover:opacity-100"
+                      onClick={() => openConversationEditor(conversation)}
+                      title="编辑对话名称"
+                      type="button"
+                    >
+                      <PencilLine size={15} aria-hidden="true" />
                     </button>
                     {allowDeleteConversations ? (
                       <button
@@ -697,6 +816,64 @@ export function ChatApp({
           </div>
         ) : null}
       </section>
+      {editingConversation ? (
+        <AppDialog
+          title="编辑对话名称"
+          description="把对话改成客户名、项目名或备注，方便之后快速找到。"
+          onClose={closeConversationEditor}
+          footer={
+            <>
+              <button
+                className="h-10 rounded-xl border border-white/10 px-4 text-sm text-zinc-300 transition hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={savingConversationTitle}
+                onClick={closeConversationEditor}
+                type="button"
+              >
+                取消
+              </button>
+              <button
+                className="h-10 rounded-xl bg-white px-4 text-sm font-medium text-zinc-950 transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={savingConversationTitle}
+                onClick={() => {
+                  void saveConversationTitle();
+                }}
+                type="button"
+              >
+                {savingConversationTitle ? "保存中" : "保存"}
+              </button>
+            </>
+          }
+        >
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void saveConversationTitle();
+            }}
+          >
+            <label className="block text-sm font-medium text-zinc-300">
+              对话名称
+              <input
+                autoFocus
+                className="mt-2 h-12 w-full rounded-2xl border border-white/10 bg-white/5 px-4 text-base text-zinc-100 outline-none transition placeholder:text-zinc-600 focus:border-sky-400/35 focus:bg-white/8"
+                maxLength={80}
+                onChange={(event) => {
+                  setEditingTitle(event.target.value);
+                  setEditingTitleError("");
+                }}
+                placeholder="例如：张三 - 产品咨询"
+                value={editingTitle}
+              />
+            </label>
+            {editingTitleError ? (
+              <p className="mt-2 text-sm text-red-300">{editingTitleError}</p>
+            ) : (
+              <p className="mt-2 text-xs text-zinc-500">
+                最多 80 个字符，仅修改你自己的对话显示名称。
+              </p>
+            )}
+          </form>
+        </AppDialog>
+      ) : null}
       {notice ? (
         <AppDialog
           title="图片上传提示"
